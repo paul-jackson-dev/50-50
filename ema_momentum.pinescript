@@ -1,0 +1,68 @@
+//@version=5
+indicator(title="9 EMA - 50 SMA", shorttitle="9EMA/50SMA", overlay=false, timeframe="", timeframe_gaps=true)
+len_ema = input.int(9, minval=1, title="Length")
+src = input(close, title="Source")
+offset = input.int(title="Offset", defval=0, minval=-500, maxval=500)
+out_ema = ta.ema(src, len_ema)
+// plot(out_ema, title="EMA", color=color.red, offset=offset)
+
+// //@version=5
+// indicator(title="Average True Range", shorttitle="ATR", overlay=false, timeframe="", timeframe_gaps=true)
+length = input.int(title="Length", defval=500, minval=1)
+smoothing = input.string(title="Smoothing", defval="SMA", options=["RMA", "SMA", "EMA", "WMA"])
+ma_function(source, length) =>
+	switch smoothing
+		"RMA" => ta.rma(source, length)
+		"SMA" => ta.sma(source, length)
+		"EMA" => ta.ema(source, length)
+		=> ta.wma(source, length)
+
+atr = ma_function(ta.tr(true), length)
+// plot(atr, title = "ATR", color=color.new(#B71C1C, 0))
+
+len_sma = input.int(50, minval=1, title="Length")
+out_sma = ta.sma(src, len_sma)
+// plot(out_sma, title="EMA", color=color.blue, offset=offset)
+// out_ema_sum_up = math.sum(out_sma)
+
+dif = (out_ema-out_sma)
+// plot(dif, title="EMA", color=color.purple, offset=offset)
+
+dif_percent = (dif[0]-dif[4])/close/atr*5
+ema_dif_percent = (out_ema[0] - out_ema[1])/atr
+ema_dif_atr = (out_ema[0] - out_ema[9])/atr
+// plot(ema_dif_atr, title="EMA", color= color.rgb(255, 1, 200), offset=offset)
+// plot(ema_dif_percent, title="EMA", color= color.rgb(255, 1, 200), offset=offset)
+
+plot(0, color=color.black)
+plot(.005, color=color.black)
+plot(-.005, color=color.black)
+plot(.006, color=color.black)
+plot(-.006, color=color.black)
+
+upBars = math.sum(close > open ? .001 : 0, 10)
+// plot(upBars, color=color.green, style = plot.style_stepline)
+
+dnBars = math.sum(close < open ? -.001 : 0, 10)
+// plot(dnBars, color=color.red, style = plot.style_stepline)
+
+up = upBars > .006 and ema_dif_atr >= 3 ? .007 : 0
+plot(up)
+
+dn = dnBars < -.006 and ema_dif_atr <= -3 ? -.007 : 0
+plot(dn)
+
+
+// ma(source, length, type) =>
+//     switch type
+//         "SMA" => ta.sma(source, length)
+//         "EMA" => ta.ema(source, length)
+//         "SMMA (RMA)" => ta.rma(source, length)
+//         "WMA" => ta.wma(source, length)
+//         "VWMA" => ta.vwma(source, length)
+
+// typeMA = input.string(title = "Method", defval = "SMA", options=["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group="Smoothing")
+// smoothingLength = input.int(title = "Length", defval = 5, minval = 1, maxval = 100, group="Smoothing")
+
+// smoothingLine = ma(out, smoothingLength, typeMA)
+// plot(smoothingLine, title="Smoothing Line", color=#f37f20, offset=offset, display=display.none)
