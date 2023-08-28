@@ -527,7 +527,7 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                   columns=['spread %', 'spread', 'vwap', 'mid_price', 'atr', 'set_time_vwap', 'vwap_1', 'vwap_2', 'vwap_3',
                            'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3', 'set_time_vwap_per',
-                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'in_trade'])
+                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade'])
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
@@ -570,12 +570,61 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         count -= 1
         indx -= 1
 
-    atr_bars = pd.DataFrame(bars)
-    atr_df = pd.DataFrame()  # erase old stuff
-    atr_df['ATR'] = ta.atr(high=atr_bars['high'].tail(550), low=atr_bars['low'].tail(550),
-                           close=atr_bars['close'].tail(550), length=500, mamode='SMA')
-    atr = round(atr_df['ATR'].iloc[-1], 4)
+    # calculate ATR
+    calc_bars = pd.DataFrame(bars)
+    atr_df = pd.DataFrame(columns=['atr'])  # erase old stuff
+    atr_df.atr = ta.atr(high=calc_bars['high'].tail(550), low=calc_bars['low'].tail(550),
+                        close=calc_bars['close'].tail(550), length=500, mamode='SMA')
+    atr = round(atr_df.iloc[-1].atr, 4)
     df.loc[symbol].atr = atr
+
+    # calculate 9 EMA
+    ema_df = pd.DataFrame(columns=['ema9'])  # erase old stuff
+    ema_df.ema9 = ta.ema(calc_bars['close'].tail(20), length=9)
+    ema9 = round(ema_df.iloc[-1].ema9, 4)
+    # df.loc[symbol].EMA9 = ema
+
+    # check for up signal
+    signal_up = True
+    for r in range(-2, -7, -1):  # check last five EMAs
+        if ema_df.iloc[r].ema9 > ema_df.iloc[r - 1].ema9:
+            pass
+        else:
+            signal_up = False
+    if signal_up:
+        if not ema_df.iloc[-2].ema9 - ema_df.iloc[-10].ema9 > atr:  # use negative indexing to calculate from the most recent
+            signal_up = False
+    if signal_up:
+        bars_up_count = 0
+        for r in range(-2, -12, -1):
+            if calc_bars.iloc[r].close >= calc_bars.iloc[r].open:
+                bars_up_count += 1
+        if bars_up_count < 7:
+            signal_up = False
+    if signal_up:
+        df.loc[symbol].signal = "signal_up"
+    # print("up", signal_up)
+
+    # check for down signal
+    signal_down = True
+    for r in range(-2, -7, -1):  # check last five EMAs
+        if ema_df.iloc[r].ema9 < ema_df.iloc[r - 1].ema9:
+            pass
+        else:
+            signal_down = False
+    if signal_down:
+        if not ema_df.iloc[-10].ema9 - ema_df.iloc[-2].ema9 > atr:  # use negative indexing to calculate from the most recent
+            signal_down = False
+    if signal_down:
+        bars_down_count = 0
+        for r in range(-2, -12, -1):
+            if calc_bars.iloc[r].close <= calc_bars.iloc[r].open:
+                bars_down_count += 1
+        if bars_down_count < 7:
+            signal_down = False
+    if signal_down:
+        df.loc[symbol].signal = "signal_down"
+    # print("down", signal_down)
 
     # update atr_count
     if previous_bar_time % time_frame == 0 and previous_bar_time != df.loc[symbol].set_time_atr:
@@ -770,7 +819,7 @@ for contract in contracts:
         # barSizeSetting=str(time_frame) + ' min',
         # barSizeSetting='15 mins',
         whatToShow='TRADES',
-        useRTH=True,
+        useRTH=False,  # use Regular Trading Hours True for Regular
         keepUpToDate=True,
     )
     df.loc[contract.symbol].set_time_vwap = 0
@@ -872,7 +921,7 @@ while True:
     df = df.sort_values(by=['spread %'])
     i = 0
     # print(df.head(10))
-    print(df[['atr_count', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3', 'spread %', 'spread', 'vwap', 'vwap_1', 'vwap_2', 'vwap_3', 'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'set_time_vwap', 'banned']].head(15))
+    print(df[['signal', 'atr_count', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3', 'spread %', 'spread', 'vwap', 'vwap_1', 'vwap_2', 'vwap_3', 'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'set_time_vwap', 'banned']].head(15))
     positions = ib.positions()  # get positions
     df_positions = util.df(positions)  # create dataframe with positions
     # print(df_positions)
@@ -1046,6 +1095,21 @@ while True:
                 ib.sleep(0)
 
         ##############################################################################################################
+        # open and manage positions based on 'signal'
+        # open a new order to manage
+        if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
+            if tradeable and df.loc[symbol].signal == "signal_up":
+                print(symbol, "Buying - Signal Up")
+                market_order = MarketOrder("BUY", abs(qty))
+                ib.placeOrder(contract, market_order)
+                ib.sleep(0)
+
+            if tradeable and df.loc[symbol].signal == "signal_down":
+                print(symbol, "Selling - Signal Up")
+                market_order = MarketOrder("SELL", abs(qty))
+                ib.placeOrder(contract, market_order)
+                ib.sleep(0)
+
         # open and manage positions based on atr_count
         # open a new order to manage
         if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
