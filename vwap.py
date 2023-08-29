@@ -480,7 +480,7 @@ symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX
 # symbols = ['TSLA', 'AAPL', 'MSFT', 'NVDA']
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['MSFT']
-# symbols = ['TSLA']
+symbols = ['TSLA']
 time_frame = 2
 
 # symbols = ['TSLA']
@@ -580,7 +580,9 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
 
     # calculate 9 EMA
     ema_df = pd.DataFrame(columns=['ema9'])  # erase old stuff
-    ema_df.ema9 = ta.ema(calc_bars['close'].tail(20), length=9)
+    # ema_df.ema9 = ta.ema(calc_bars['close'].tail(20), length=9)
+    ema_df.ema9 = ta.ema(calc_bars.close, length=9)
+    # print(ema_df.ema9.tail(20))
     ema9 = round(ema_df.iloc[-1].ema9, 4)
     # df.loc[symbol].EMA9 = ema
 
