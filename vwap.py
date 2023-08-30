@@ -480,8 +480,8 @@ symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX
 # symbols = ['TSLA', 'AAPL', 'MSFT', 'NVDA']
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['MSFT']
-symbols = ['TSLA']
-time_frame = 2
+# symbols = ['TSLA']
+time_frame = 5
 
 # symbols = ['TSLA']
 
@@ -576,6 +576,7 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     atr_df.atr = ta.atr(high=calc_bars['high'].tail(550), low=calc_bars['low'].tail(550),
                         close=calc_bars['close'].tail(550), length=500, mamode='SMA')
     atr = round(atr_df.iloc[-1].atr, 4)
+    atr_1 = round(atr_df.iloc[-2].atr, 4)
     df.loc[symbol].atr = atr
 
     # calculate 9 EMA
@@ -594,7 +595,7 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         else:
             signal_up = False
     if signal_up:
-        if not ema_df.iloc[-2].ema9 - ema_df.iloc[-10].ema9 > atr:  # use negative indexing to calculate from the most recent
+        if not ema_df.iloc[-2].ema9 - ema_df.iloc[-11].ema9 > atr_1:  # use negative indexing to calculate from the most recent
             signal_up = False
     if signal_up:
         bars_up_count = 0
@@ -605,7 +606,8 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
             signal_up = False
     if signal_up:
         df.loc[symbol].signal = "signal_up"
-    # print("up", signal_up)
+    else:
+        df.loc[symbol].signal = "none"
 
     # check for down signal
     signal_down = True
@@ -615,7 +617,7 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         else:
             signal_down = False
     if signal_down:
-        if not ema_df.iloc[-10].ema9 - ema_df.iloc[-2].ema9 > atr:  # use negative indexing to calculate from the most recent
+        if not ema_df.iloc[-11].ema9 - ema_df.iloc[-2].ema9 > atr_1:  # use negative indexing to calculate from the most recent
             signal_down = False
     if signal_down:
         bars_down_count = 0
@@ -627,6 +629,10 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     if signal_down:
         df.loc[symbol].signal = "signal_down"
     # print("down", signal_down)
+    # if symbol == "TSLA":
+    # print("bars up", bars_up_count, "bars down", bars_down_count)
+    # print("ema-2, ema-11, atr", ema_df.iloc[-2].ema9, ema_df.iloc[-11].ema9, atr)
+    # print("ema-2, ema-7", ema_df.iloc[-2].ema9, ema_df.iloc[-7].ema9)
 
     # update atr_count
     if previous_bar_time % time_frame == 0 and previous_bar_time != df.loc[symbol].set_time_atr:
@@ -839,6 +845,7 @@ for contract in contracts:
     df.loc[contract.symbol].set_time_atr = 30 - time_frame  # stops atr_count from updating with premarket data
     df.loc[contract.symbol].atr_count = 0
     df.loc[contract.symbol].in_trade = "none"
+    df.loc[contract.symbol].signal = "none"
     # if contract.symbol == "MSFT":
     #     market_order = MarketOrder('SELL', 10)
     #     trade = ib.placeOrder(contract, market_order)
