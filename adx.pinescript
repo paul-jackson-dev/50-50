@@ -17,8 +17,15 @@ adx(dilen, adxlen) =>
 	adx = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), adxlen)
 sig = adx(dilen, adxlen)
 plot(sig, color=color.red, title="ADX", style=plot.style_stepline)
-bump = sig-10 > sig[10]
+[plus, minus] = dirmov(dilen)
+// plot(plus, color=color.purple)
+// plot(minus)
+bump = sig-1 > sig[1]
 plotshape(bump, style=shape.circle, location=location.top)
+up = plus-minus > 0 and bump
+dn = plus-minus < 0 and bump
+plotchar(up, char="u", color=color.green, location=location.top)
+plotchar(dn, char="d", color=color.red,location=location.top)
 plotshape(sig < 15, style=shape.circle, color=color.green, location=location.bottom)
 plot(40,color=color.rgb(143, 204, 254), linewidth=1)
 plot(25, color=color.black, linewidth=1)

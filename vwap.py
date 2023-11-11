@@ -480,8 +480,8 @@ symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX
 # symbols = ['TSLA', 'AAPL', 'MSFT', 'NVDA']
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['MSFT']
-# symbols = ['TSLA']
-time_frame = 5
+symbols = ['TSLA']
+time_frame = 2
 
 # symbols = ['TSLA']
 
@@ -580,10 +580,22 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     df.loc[symbol].atr = atr
 
     # calcuate ADX
-    adx = ta.adx(high=calc_bars['high'].tail(100), low=calc_bars['low'].tail(100),
-                        close=calc_bars['close'].tail(100), timeperiod=14)
+    adx_df = ta.adx(high=calc_bars['high'].tail(100), low=calc_bars['low'].tail(100),
+                    close=calc_bars['close'].tail(100), timeperiod=14)
     print(symbol)
-    print(adx.head(10))
+    print(calc_bars)
+    print(adx_df)
+
+    adx_df = adx_df.iloc[::-1]  # reverse the dataframe to iterate over the most recent rows.
+    adx_under_15_count = 0
+    for index, row in adx_df.iloc[:6].iterrows():  # limit to last 6 rows
+        print(row.ADX_14)
+        if (row.ADX_14 < 40):
+            adx_under_15_count += 1
+    adx = round(adx_df.iloc[0].ADX_14, 0)
+    adx_direction = adx_df.iloc[1].DMP_14 - adx_df.iloc[1].DMN_14
+    print(adx_under_15_count)
+    print(adx)
 
     # calculate 9 EMA
     ema_df = pd.DataFrame(columns=['ema9'])  # erase old stuff
