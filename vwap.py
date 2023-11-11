@@ -579,6 +579,12 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     atr_1 = round(atr_df.iloc[-2].atr, 4)
     df.loc[symbol].atr = atr
 
+    # calcuate ADX
+    adx = ta.adx(high=calc_bars['high'].tail(100), low=calc_bars['low'].tail(100),
+                        close=calc_bars['close'].tail(100), timeperiod=14)
+    print(symbol)
+    print(adx.head(10))
+
     # calculate 9 EMA
     ema_df = pd.DataFrame(columns=['ema9'])  # erase old stuff
     # ema_df.ema9 = ta.ema(calc_bars['close'].tail(20), length=9)
@@ -915,7 +921,7 @@ for contract in contracts:
 # #quit(0)
 #
 #
-# #onBarUpdate(bars, True)
+onBarUpdateNew(bars, True)
 #
 #
 # ib.barUpdateEvent += onBarUpdate
