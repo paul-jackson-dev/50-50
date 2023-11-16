@@ -4,6 +4,7 @@ import pandas_ta as ta
 import nest_asyncio
 import random
 import datetime
+# from datetime import datetime
 import json
 import math
 from statistics import mean
@@ -477,7 +478,7 @@ def onBarUpdate(bars: BarDataList, has_new_bar: bool):
 symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX", "AVGO", "XOM", "ADBE", "LLY", "JPM",
            "V", "INTC", "HD", "CRM", "BAC", "UNH", "MU", "PYPL", "DIS", "PLTR", "CVX", "MRVL", "MA", "SNOW", "UBER",
            "PFE", "QCOM", "CSCO", "PANW", "NOW", "COST", "BRK B", "TXN", "JNJ", "WFC", "BA"]
-# symbols = ['TSLA', 'AAPL', 'MSFT', 'NVDA']
+# symbols = ['TSLA', 'AAPL', 'MSFT', 'NVDA', 'AMZN']
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['MSFT']
 symbols = ['TSLA']
@@ -527,7 +528,7 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                   columns=['spread %', 'spread', 'vwap', 'mid_price', 'atr', 'set_time_vwap', 'vwap_1', 'vwap_2', 'vwap_3',
                            'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3', 'set_time_vwap_per',
-                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade'])
+                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade', 'adx_signal', 'adx_dict'])
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
@@ -574,28 +575,64 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     calc_bars = pd.DataFrame(bars)
     atr_df = pd.DataFrame(columns=['atr'])  # erase old stuff
     atr_df.atr = ta.atr(high=calc_bars['high'].tail(550), low=calc_bars['low'].tail(550),
-                        close=calc_bars['close'].tail(550), length=500, mamode='SMA')
+                        close=calc_bars['close'].tail(550), length=14, mamode='SMA')
     atr = round(atr_df.iloc[-1].atr, 4)
     atr_1 = round(atr_df.iloc[-2].atr, 4)
     df.loc[symbol].atr = atr
 
     # calcuate ADX
     adx_df = ta.adx(high=calc_bars['high'].tail(100), low=calc_bars['low'].tail(100),
-                    close=calc_bars['close'].tail(100), timeperiod=14)
-    print(symbol)
-    print(calc_bars)
-    print(adx_df)
+                    close=calc_bars['close'].tail(100), timeperiod=14, tvmode=True)  # running dev version of talib. tvmode replicates the code on TradingView
+    # print(symbol)
+    # print(calc_bars)
+    # print(adx_df)
 
     adx_df = adx_df.iloc[::-1]  # reverse the dataframe to iterate over the most recent rows.
+    adx_df = adx_df.reset_index(drop=True)  # reset index to 0
+    print(adx_df.head(20))
     adx_under_15_count = 0
-    for index, row in adx_df.iloc[:6].iterrows():  # limit to last 6 rows
-        print(row.ADX_14)
-        if (row.ADX_14 < 40):
-            adx_under_15_count += 1
-    adx = round(adx_df.iloc[0].ADX_14, 0)
-    adx_direction = adx_df.iloc[1].DMP_14 - adx_df.iloc[1].DMN_14
-    print(adx_under_15_count)
-    print(adx)
+    adx_bump = None
+    adx_direction = 0
+    index_count = 0
+    for index, row in adx_df.iloc[:7].iterrows():  # iterate over 7 rows, but shift to focus on 6
+        if (xz.minute + 1 % time_frame == 0 and xz.second > 50 and index < 7):  # check for signal late in the bar
+            adx_bump = True if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1 else False
+            adx_direction = adx_df.iloc[0].DMP_14 - adx_df.iloc[0].DMN_14
+            if row.ADX_14 <= 15:
+                adx_under_15_count += 1
+        elif (xz.minute % time_frame == 0 and xz.second < 10):  # check for signal if it was missed in the last bar
+            adx_bump = True if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= 1 else False  # shift because we are in a new bar
+            adx_direction = adx_df.iloc[1].DMP_14 - adx_df.iloc[1].DMN_14
+            if row.ADX_14 <= 15 and index != 0:  # shift because we are in a new bar
+                adx_under_15_count += 1
+    adx_dict = df.loc[symbol].adx_dict
+
+    duration_since_last_signal = (datetime.datetime.now() - adx_dict["last_signal_time"]).total_seconds()
+    if adx_under_15_count >= 5 and adx_bump == True and duration_since_last_signal >= 60 * (time_frame * 3):  # wait 3 time frames before issuing new signal
+        df.loc[symbol].adx_signal = "signal_buy" if adx_direction > 0 else "signal_sell"
+        df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}
+        print(symbol)
+        print(xz.hour, xz.minute, xz.second)
+        print(adx_under_15_count)
+        print(adx_bump)
+        print(adx_direction)
+        adx = round(adx_df.iloc[0].ADX_14, 2)
+        print(adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14)
+        print(adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14)
+        print(adx)
+        print(adx_df.head(10))
+        ib.disconnect()
+        quit(0)
+    else:
+        df.loc[symbol].adx_signal = "none"
+
+    adx = round(adx_df.iloc[0].ADX_14, 2)
+    # if adx <= 15:
+    #     print(symbol)
+    #     print(adx_under_15_count)
+    #     print(adx_bump)
+    #     print(adx_direction)
+    #     print(adx)
 
     # calculate 9 EMA
     ema_df = pd.DataFrame(columns=['ema9'])  # erase old stuff
@@ -864,6 +901,7 @@ for contract in contracts:
     df.loc[contract.symbol].atr_count = 0
     df.loc[contract.symbol].in_trade = "none"
     df.loc[contract.symbol].signal = "none"
+    df.loc[contract.symbol].adx_dict = {"last_signal_time": datetime.datetime(2012, 3, 5, 23, 8, 15)}  # arbitrary date in the past
     # if contract.symbol == "MSFT":
     #     market_order = MarketOrder('SELL', 10)
     #     trade = ib.placeOrder(contract, market_order)
@@ -876,7 +914,8 @@ for contract in contracts:
 #     df.loc[contract.symbol].symbol = contract.symbol
 #     df.loc[contract.symbol].pnl = 0
 #     df.loc[contract.symbol].direction = "none"
-# onBarUpdateNew(bars, True)
+ib.sleep(10)
+onBarUpdateNew(bars, True)
 #
 # market_order = MarketOrder('BUY', 10)
 # # stop_order = StopOrder('BUY', 10, 261.75)
@@ -933,8 +972,9 @@ for contract in contracts:
 # #quit(0)
 #
 #
-onBarUpdateNew(bars, True)
-#
+# onBarUpdateNew(bars, True)
+# ib.disconnect()
+# quit(0)
 #
 # ib.barUpdateEvent += onBarUpdate
 
@@ -948,7 +988,8 @@ while True:
     df = df.sort_values(by=['spread %'])
     i = 0
     # print(df.head(10))
-    print(df[['signal', 'atr_count', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3', 'spread %', 'spread', 'vwap', 'vwap_1', 'vwap_2', 'vwap_3', 'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'set_time_vwap', 'banned']].head(15))
+    print(df[['signal', 'atr_count', 'stairs', 'adx_signal', 'spread %', 'spread', 'vwap',
+              'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'set_time_vwap', 'banned', ]].head(40))
     positions = ib.positions()  # get positions
     df_positions = util.df(positions)  # create dataframe with positions
     # print(df_positions)
@@ -992,7 +1033,7 @@ while True:
 
     max_position_count = 10 + 1  # add one if we're holding a long term SPY position // Allows 10 positions to be open at one time but not more.
     tradeable_count = 8  # only open trades for the top symbols in the sorted df corresponds to tradeable // only look at the top 8 symbols
-    max_daily_trades = 10  # limits max trades per day to 10
+    max_daily_trades = 1000  # limits max trades per day to 10
     atr_count_entry = 3  # place a limit order when atr_count == 3
     for index, row in df.iterrows():
         symbol = index
@@ -1125,14 +1166,14 @@ while True:
         # open and manage positions based on 'signal'
         # open a new order to manage
         if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
-            if tradeable and df.loc[symbol].signal == "signal_up":
+            if tradeable and df.loc[symbol].adx_signal == "signal_buy":
                 print(symbol, "Buying - Signal Up")
                 market_order = MarketOrder("BUY", abs(qty))
                 ib.placeOrder(contract, market_order)
                 ib.sleep(0)
 
-            if tradeable and df.loc[symbol].signal == "signal_down":
-                print(symbol, "Selling - Signal Up")
+            if tradeable and df.loc[symbol].adx_signal == "signal_sell":
+                print(symbol, "Selling - Signal Down")
                 market_order = MarketOrder("SELL", abs(qty))
                 ib.placeOrder(contract, market_order)
                 ib.sleep(0)
@@ -1193,13 +1234,13 @@ while True:
                     if qty_close > 0:
                         df.loc[symbol].in_trade = "up"
                         action = "SELL"
-                        price1 = round(avg_cost + (atr * 3), 2)
-                        price2 = round(avg_cost - (atr * 3), 2)
+                        price1 = round(avg_cost + (atr * 1), 2)
+                        price2 = round(avg_cost - (atr * 1), 2)
                     if qty_close < 0:
                         df.loc[symbol].in_trade = "dn"
                         action = "BUY"
-                        price1 = round(avg_cost - (atr * 3), 2)
-                        price2 = round(avg_cost + (atr * 3), 2)
+                        price1 = round(avg_cost - (atr * 1), 2)
+                        price2 = round(avg_cost + (atr * 1), 2)
                     order1 = LimitOrder(action, abs(qty_close), price1)
                     order2 = StopOrder(action, abs(qty_close), price2)
                     place_oca_orders(contract, order1, order2)
