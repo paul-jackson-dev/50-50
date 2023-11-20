@@ -530,7 +530,7 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                   columns=['spread %', 'spread', 'vwap', 'mid_price', 'atr', 'set_time_vwap', 'vwap_1', 'vwap_2', 'vwap_3',
                            'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3', 'set_time_vwap_per',
-                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade', 'adx_signal', 'adx_dict'])
+                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade', 'adx_signal', 'adx_dict', 'calculable'])
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
@@ -582,139 +582,140 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     atr_1 = round(atr_df.iloc[-2].atr, 4)
     df.loc[symbol].atr = atr
 
-    # calcuate ADX
-    adx_df = ta.adx(high=calc_bars['high'].tail(550), low=calc_bars['low'].tail(550),
-                    close=calc_bars['close'].tail(550), timeperiod=14, tvmode=True)  # running dev version of talib. tvmode replicates the code on TradingView
-    # print(symbol)
-    # print(calc_bars)
-    # print(adx_df)
-
-    adx_df = adx_df.iloc[::-1]  # reverse the dataframe to iterate over the most recent rows.
-    adx_df = adx_df.reset_index(drop=True)  # reset index to 0
-    # print(adx_df.head(20))
-    adx_under_15_count = 0
-    adx_bump = None
-    adx_direction = 0
-    index_count = 0
-    for index, row in adx_df.iloc[:6].iterrows():  # iterate over 7 rows, but shift to focus on 6
-        if ((xz.minute - (time_frame - 1)) % time_frame == 0 and xz.second > 50 and index < 6):  # check for signal late in the bar
-            adx_bump = True if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1 else False
-            adx_direction = adx_df.iloc[0].DMP_14 - adx_df.iloc[0].DMN_14
-            if row.ADX_14 <= 15:
-                adx_under_15_count += 1
-        # if (xz.minute % time_frame == 0 and xz.second < 10):  # check for signal if it was missed in the last bar
-        #     adx_bump = True if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= 1 else False  # shift because we are in a new bar
-        #     adx_direction = adx_df.iloc[1].DMP_14 - adx_df.iloc[1].DMN_14
-        #     if row.ADX_14 <= 15 and index != 0:  # shift because we are in a new bar
-        #         adx_under_15_count += 1
-    adx_dict = df.loc[symbol].adx_dict
-
-    duration_since_last_signal = (datetime.datetime.now() - adx_dict["last_signal_time"]).total_seconds()
-    if adx_under_15_count >= 5 and adx_bump == True and duration_since_last_signal >= 60 * (time_frame * 3):  # wait 3 time frames before issuing new signal
-        df.loc[symbol].adx_signal = "signal_buy" if adx_direction > 0 else "signal_sell"
-        df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}
-        # ######### for pattern verification
+    if df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
+        # calcuate ADX
+        adx_df = ta.adx(high=calc_bars['high'].tail(550), low=calc_bars['low'].tail(550),
+                        close=calc_bars['close'].tail(550), timeperiod=14, tvmode=True)  # running dev version of talib. tvmode replicates the code on TradingView
         # print(symbol)
-        # print(xz.hour, xz.minute, xz.second)
-        # print(adx_under_15_count)
-        # print(adx_bump)
-        # print(adx_direction)
-        # adx = round(adx_df.iloc[0].ADX_14, 2)
-        # print(adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14)
-        # print(adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14)
-        # print(adx)
-        # print(adx_df.head(10))
-        # print("playing sound")
-        # winsound.PlaySound('ding.wav', winsound.SND_FILENAME)
-        # ib.disconnect()
-        # quit(0)
-    else:
-        df.loc[symbol].adx_signal = "none"
+        # print(calc_bars)
+        # print(adx_df)
 
-    adx = round(adx_df.iloc[0].ADX_14, 2)
-    # if adx <= 15:
-    #     print(symbol)
-    #     print(adx_under_15_count)
-    #     print(adx_bump)
-    #     print(adx_direction)
-    #     print(adx)
+        adx_df = adx_df.iloc[::-1]  # reverse the dataframe to iterate over the most recent rows.
+        adx_df = adx_df.reset_index(drop=True)  # reset index to 0
+        # print(adx_df.head(20))
+        adx_under_15_count = 0
+        adx_bump = None
+        adx_direction = 0
+        index_count = 0
+        for index, row in adx_df.iloc[:6].iterrows():  # iterate over 7 rows, but shift to focus on 6
+            if ((xz.minute - (time_frame - 1)) % time_frame == 0 and xz.second > 50 and index < 6):  # check for signal late in the bar
+                adx_bump = True if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1 else False
+                adx_direction = adx_df.iloc[0].DMP_14 - adx_df.iloc[0].DMN_14
+                if row.ADX_14 <= 15:
+                    adx_under_15_count += 1
+            if (xz.minute % time_frame == 0):  # check for signal if it was missed in the last bar
+                adx_bump = True if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= 1 else False  # shift because we are in a new bar
+                adx_direction = adx_df.iloc[1].DMP_14 - adx_df.iloc[1].DMN_14
+                if row.ADX_14 <= 15 and index != 0:  # shift because we are in a new bar
+                    adx_under_15_count += 1
+        adx_dict = df.loc[symbol].adx_dict
 
-    # calculate 9 EMA
-    ema_df = pd.DataFrame(columns=['ema9'])  # erase old stuff
-    # ema_df.ema9 = ta.ema(calc_bars['close'].tail(20), length=9)
-    ema_df.ema9 = ta.ema(calc_bars.close, length=9)
-    # print(ema_df.ema9.tail(20))
-    ema9 = round(ema_df.iloc[-1].ema9, 4)
-    # df.loc[symbol].EMA9 = ema
-
-    # check for up signal
-    signal_up = True
-    for r in range(-2, -7, -1):  # check last five EMAs
-        if ema_df.iloc[r].ema9 > ema_df.iloc[r - 1].ema9:
-            pass
+        duration_since_last_signal = (datetime.datetime.now() - adx_dict["last_signal_time"]).total_seconds()
+        if adx_under_15_count >= 5 and adx_bump == True and duration_since_last_signal >= 60 * (time_frame * 3):  # wait 3 time frames before issuing new signal
+            df.loc[symbol].adx_signal = "signal_buy" if adx_direction > 0 else "signal_sell"
+            # df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}
+            # ######### for pattern verification
+            # print(symbol)
+            # print(xz.hour, xz.minute, xz.second)
+            # print(adx_under_15_count)
+            # print(adx_bump)
+            # print(adx_direction)
+            # adx = round(adx_df.iloc[0].ADX_14, 2)
+            # print(adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14)
+            # print(adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14)
+            # print(adx)
+            # print(adx_df.head(10))
+            # print("playing sound")
+            # winsound.PlaySound('ding.wav', winsound.SND_FILENAME)
+            # ib.disconnect()
+            # quit(0)
         else:
-            signal_up = False
-    if signal_up:
-        if not ema_df.iloc[-2].ema9 - ema_df.iloc[-11].ema9 > atr_1:  # use negative indexing to calculate from the most recent
-            signal_up = False
-    if signal_up:
-        bars_up_count = 0
-        for r in range(-2, -12, -1):
-            if calc_bars.iloc[r].close >= calc_bars.iloc[r].open:
-                bars_up_count += 1
-        if bars_up_count < 7:
-            signal_up = False
-    if signal_up:
-        df.loc[symbol].signal = "signal_up"
-    else:
-        df.loc[symbol].signal = "none"
+            df.loc[symbol].adx_signal = "none"
 
-    # check for down signal
-    signal_down = True
-    for r in range(-2, -7, -1):  # check last five EMAs
-        if ema_df.iloc[r].ema9 < ema_df.iloc[r - 1].ema9:
-            pass
+        adx = round(adx_df.iloc[0].ADX_14, 2)
+        # if adx <= 15:
+        #     print(symbol)
+        #     print(adx_under_15_count)
+        #     print(adx_bump)
+        #     print(adx_direction)
+        #     print(adx)
+
+        # calculate 9 EMA
+        ema_df = pd.DataFrame(columns=['ema9'])  # erase old stuff
+        # ema_df.ema9 = ta.ema(calc_bars['close'].tail(20), length=9)
+        ema_df.ema9 = ta.ema(calc_bars.close, length=9)
+        # print(ema_df.ema9.tail(20))
+        ema9 = round(ema_df.iloc[-1].ema9, 4)
+        # df.loc[symbol].EMA9 = ema
+
+        # check for up signal
+        signal_up = True
+        for r in range(-2, -7, -1):  # check last five EMAs
+            if ema_df.iloc[r].ema9 > ema_df.iloc[r - 1].ema9:
+                pass
+            else:
+                signal_up = False
+        if signal_up:
+            if not ema_df.iloc[-2].ema9 - ema_df.iloc[-11].ema9 > atr_1:  # use negative indexing to calculate from the most recent
+                signal_up = False
+        if signal_up:
+            bars_up_count = 0
+            for r in range(-2, -12, -1):
+                if calc_bars.iloc[r].close >= calc_bars.iloc[r].open:
+                    bars_up_count += 1
+            if bars_up_count < 7:
+                signal_up = False
+        if signal_up:
+            df.loc[symbol].signal = "signal_up"
         else:
-            signal_down = False
-    if signal_down:
-        if not ema_df.iloc[-11].ema9 - ema_df.iloc[-2].ema9 > atr_1:  # use negative indexing to calculate from the most recent
-            signal_down = False
-    if signal_down:
-        bars_down_count = 0
-        for r in range(-2, -12, -1):
-            if calc_bars.iloc[r].close <= calc_bars.iloc[r].open:
-                bars_down_count += 1
-        if bars_down_count < 7:
-            signal_down = False
-    if signal_down:
-        df.loc[symbol].signal = "signal_down"
-    # print("down", signal_down)
-    # if symbol == "TSLA":
-    # print("bars up", bars_up_count, "bars down", bars_down_count)
-    # print("ema-2, ema-11, atr", ema_df.iloc[-2].ema9, ema_df.iloc[-11].ema9, atr)
-    # print("ema-2, ema-7", ema_df.iloc[-2].ema9, ema_df.iloc[-7].ema9)
+            df.loc[symbol].signal = "none"
 
-    # update atr_count
-    if previous_bar_time % time_frame == 0 and previous_bar_time != df.loc[symbol].set_time_atr:
-        try:  # sometimes bar data doesn't load for some amount of time
-            p_atr_count = df.loc[symbol].atr_count
-            p_open = df_bars.iloc[-2].open
-            p_close = df_bars.iloc[-2].close
-            # print(p_atr_count, p_open, p_close, atr)
-            if p_close >= p_open + atr:
-                df.loc[symbol].set_time_atr = previous_bar_time
-                if p_atr_count > 0:
-                    df.loc[symbol].atr_count = p_atr_count + 1
-                else:
-                    df.loc[symbol].atr_count = 1
-            if p_close <= p_open - atr:
-                df.loc[symbol].set_time_atr = previous_bar_time
-                if p_atr_count < 0:
-                    df.loc[symbol].atr_count = p_atr_count - 1
-                else:
-                    df.loc[symbol].atr_count = -1
-        except:
-            pass
+        # check for down signal
+        signal_down = True
+        for r in range(-2, -7, -1):  # check last five EMAs
+            if ema_df.iloc[r].ema9 < ema_df.iloc[r - 1].ema9:
+                pass
+            else:
+                signal_down = False
+        if signal_down:
+            if not ema_df.iloc[-11].ema9 - ema_df.iloc[-2].ema9 > atr_1:  # use negative indexing to calculate from the most recent
+                signal_down = False
+        if signal_down:
+            bars_down_count = 0
+            for r in range(-2, -12, -1):
+                if calc_bars.iloc[r].close <= calc_bars.iloc[r].open:
+                    bars_down_count += 1
+            if bars_down_count < 7:
+                signal_down = False
+        if signal_down:
+            df.loc[symbol].signal = "signal_down"
+        # print("down", signal_down)
+        # if symbol == "TSLA":
+        # print("bars up", bars_up_count, "bars down", bars_down_count)
+        # print("ema-2, ema-11, atr", ema_df.iloc[-2].ema9, ema_df.iloc[-11].ema9, atr)
+        # print("ema-2, ema-7", ema_df.iloc[-2].ema9, ema_df.iloc[-7].ema9)
+
+        # update atr_count
+        if previous_bar_time % time_frame == 0 and previous_bar_time != df.loc[symbol].set_time_atr:
+            try:  # sometimes bar data doesn't load for some amount of time
+                p_atr_count = df.loc[symbol].atr_count
+                p_open = df_bars.iloc[-2].open
+                p_close = df_bars.iloc[-2].close
+                # print(p_atr_count, p_open, p_close, atr)
+                if p_close >= p_open + atr:
+                    df.loc[symbol].set_time_atr = previous_bar_time
+                    if p_atr_count > 0:
+                        df.loc[symbol].atr_count = p_atr_count + 1
+                    else:
+                        df.loc[symbol].atr_count = 1
+                if p_close <= p_open - atr:
+                    df.loc[symbol].set_time_atr = previous_bar_time
+                    if p_atr_count < 0:
+                        df.loc[symbol].atr_count = p_atr_count - 1
+                    else:
+                        df.loc[symbol].atr_count = -1
+            except:
+                pass
 
 
 def onPendingTickers(tickers):
@@ -739,45 +740,46 @@ def onPendingTickers(tickers):
         mid = (t.ask + t.bid) / 2
         df.loc[symbol].mid_price = mid
         df.loc[symbol].spread = t.ask - t.bid
-        # get previous bars closing vwap and store vwap at time_frame in case we want to reference it later
-        if xx.minute % time_frame == 0 and xx.minute != df.loc[symbol].set_time_vwap:
-            df.loc[symbol].set_time_vwap = xx.minute
-            df.loc[symbol].ticker_open = t.last
-            if math.isnan(df.loc[symbol].vwap_1):  # if these are nan, make them all equal to let the script run
+        if df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
+            # get previous bars closing vwap and store vwap at time_frame in case we want to reference it later
+            if xx.minute % time_frame == 0 and xx.minute != df.loc[symbol].set_time_vwap:
+                df.loc[symbol].set_time_vwap = xx.minute
+                df.loc[symbol].ticker_open = t.last
+                if math.isnan(df.loc[symbol].vwap_1):  # if these are nan, make them all equal to let the script run
+                    df.loc[symbol].vwap_1 = df.loc[symbol].vwap
+                    df.loc[symbol].vwap_2 = df.loc[symbol].vwap
+                    df.loc[symbol].vwap_3 = df.loc[symbol].vwap
+                df.loc[symbol].vwap_3 = df.loc[symbol].vwap_2
+                df.loc[symbol].vwap_2 = df.loc[symbol].vwap_1
                 df.loc[symbol].vwap_1 = df.loc[symbol].vwap
-                df.loc[symbol].vwap_2 = df.loc[symbol].vwap
-                df.loc[symbol].vwap_3 = df.loc[symbol].vwap
-            df.loc[symbol].vwap_3 = df.loc[symbol].vwap_2
-            df.loc[symbol].vwap_2 = df.loc[symbol].vwap_1
-            df.loc[symbol].vwap_1 = df.loc[symbol].vwap
-            if df.loc[symbol].vwap_o == 0:  # set first vwap open, high and low
-                df.loc[symbol].vwap_o = df.loc[symbol].vwap_1
-                df.loc[symbol].vwap_h = df.loc[symbol].vwap_1
-                df.loc[symbol].vwap_l = df.loc[symbol].vwap_1
-            if df.loc[symbol].vwap_1 > df.loc[symbol].vwap_h:
-                df.loc[symbol].vwap_h = df.loc[symbol].vwap_1
-            if df.loc[symbol].vwap_1 < df.loc[symbol].vwap_l:
-                df.loc[symbol].vwap_l = df.loc[symbol].vwap_1
-            # count vwap stairs
-            if df.loc[symbol].vwap_1 > df.loc[symbol].vwap_2:
-                if df.loc[symbol].stairs >= 0:
-                    df.loc[symbol].stairs = df.loc[symbol].stairs + 1
-                else:
-                    df.loc[symbol].stairs = 1
-            elif df.loc[symbol].vwap_1 < df.loc[symbol].vwap_2:
-                if df.loc[symbol].stairs <= 0:
-                    df.loc[symbol].stairs = df.loc[symbol].stairs - 1
-                else:
-                    df.loc[symbol].stairs = -1
+                if df.loc[symbol].vwap_o == 0:  # set first vwap open, high and low
+                    df.loc[symbol].vwap_o = df.loc[symbol].vwap_1
+                    df.loc[symbol].vwap_h = df.loc[symbol].vwap_1
+                    df.loc[symbol].vwap_l = df.loc[symbol].vwap_1
+                if df.loc[symbol].vwap_1 > df.loc[symbol].vwap_h:
+                    df.loc[symbol].vwap_h = df.loc[symbol].vwap_1
+                if df.loc[symbol].vwap_1 < df.loc[symbol].vwap_l:
+                    df.loc[symbol].vwap_l = df.loc[symbol].vwap_1
+                # count vwap stairs
+                if df.loc[symbol].vwap_1 > df.loc[symbol].vwap_2:
+                    if df.loc[symbol].stairs >= 0:
+                        df.loc[symbol].stairs = df.loc[symbol].stairs + 1
+                    else:
+                        df.loc[symbol].stairs = 1
+                elif df.loc[symbol].vwap_1 < df.loc[symbol].vwap_2:
+                    if df.loc[symbol].stairs <= 0:
+                        df.loc[symbol].stairs = df.loc[symbol].stairs - 1
+                    else:
+                        df.loc[symbol].stairs = -1
 
-            if df.loc[symbol].vwap_per_1 == 0:
-                df.loc[symbol].vwap_per_1 = 0
-                df.loc[symbol].vwap_per_2 = 0
-                df.loc[symbol].vwap_per_3 = 0
-            df.loc[symbol].vwap_per_3 = df.loc[symbol].vwap_per_2
-            df.loc[symbol].vwap_per_2 = df.loc[symbol].vwap_per_1
-            if not math.isnan(df.loc[symbol].atr):
-                df.loc[symbol].vwap_per_1 = round((df.loc[symbol].vwap_1 - df.loc[symbol].vwap_2) / df.loc[symbol].atr, 2)
+                if df.loc[symbol].vwap_per_1 == 0:
+                    df.loc[symbol].vwap_per_1 = 0
+                    df.loc[symbol].vwap_per_2 = 0
+                    df.loc[symbol].vwap_per_3 = 0
+                df.loc[symbol].vwap_per_3 = df.loc[symbol].vwap_per_2
+                df.loc[symbol].vwap_per_2 = df.loc[symbol].vwap_per_1
+                if not math.isnan(df.loc[symbol].atr):
+                    df.loc[symbol].vwap_per_1 = round((df.loc[symbol].vwap_1 - df.loc[symbol].vwap_2) / df.loc[symbol].atr, 2)
 
         df.loc[symbol].vwap = t.vwap
 
@@ -906,7 +908,9 @@ for contract in contracts:
     df.loc[contract.symbol].atr_count = 0
     df.loc[contract.symbol].in_trade = "none"
     df.loc[contract.symbol].signal = "none"
+    df.loc[contract.symbol].adx_signal = "none"
     df.loc[contract.symbol].adx_dict = {"last_signal_time": datetime.datetime(2012, 3, 5, 23, 8, 15)}  # arbitrary date in the past
+    df.loc[contract.symbol].calculable = "no"
     # if contract.symbol == "MSFT":
     #     market_order = MarketOrder('SELL', 10)
     #     trade = ib.placeOrder(contract, market_order)
@@ -994,7 +998,7 @@ while True:
     i = 0
     # print(df.head(10))
     print(df[['signal', 'atr_count', 'stairs', 'adx_signal', 'spread %', 'spread', 'vwap',
-              'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'set_time_vwap', 'banned', ]].head(20))
+              'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'set_time_vwap', 'banned', 'calculable']].head(20))
     positions = ib.positions()  # get positions
     df_positions = util.df(positions)  # create dataframe with positions
     # print(df_positions)
@@ -1037,7 +1041,8 @@ while True:
     index_count = 0  # doesn't affect trading logic, just controls a print statement
 
     max_position_count = 10 + 1  # add one if we're holding a long term SPY position // Allows 10 positions to be open at one time but not more.
-    tradeable_count = 8  # only open trades for the top symbols in the sorted df corresponds to tradeable // only look at the top 8 symbols
+    tradeable_count = 10  # only open trades for the top symbols in the sorted df corresponds to tradeable // only look at the top 8 symbols
+    calculable_count = tradeable_count + 5
     max_daily_trades = 1000  # limits max trades per day to 10
     atr_count_entry = 3  # place a limit order when atr_count == 3
     for index, row in df.iterrows():
@@ -1110,6 +1115,12 @@ while True:
             tradeable = True
         tradeable_count -= 1
 
+        if calculable_count > 0:  # help limit resource use by only calculating adx on tradeable contracts
+            df.loc[contract.symbol].calculable = "yes"
+        else:
+            df.loc[contract.symbol].calculable = "no"
+        calculable_count -= 1
+
         try:
             df.loc[symbol]["spread %"] = mean(dict_spreads[symbol])
         except:
@@ -1172,12 +1183,14 @@ while True:
         # open a new order to manage
         if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
             if tradeable and df.loc[symbol].adx_signal == "signal_buy":
+                df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}  # keep track of last trade time so we don't over trade
                 print(symbol, "Buying - Signal Up")
                 market_order = MarketOrder("BUY", abs(qty))
                 ib.placeOrder(contract, market_order)
                 ib.sleep(0)
 
             if tradeable and df.loc[symbol].adx_signal == "signal_sell":
+                df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}  # keep track of last trade time so we don't over trade
                 print(symbol, "Selling - Signal Down")
                 market_order = MarketOrder("SELL", abs(qty))
                 ib.placeOrder(contract, market_order)
@@ -1209,7 +1222,7 @@ while True:
                     print(symbol + ": opening sell order")
 
         # cancel an order that is no longer relevant
-        if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and abs(atr_count) < atr_count_entry:
+        if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and abs(atr_count) < atr_count_entry:
             for trade in open_trades:
                 if trade.contract.symbol == symbol:
                     cancel_single_order(trade.order)
@@ -1419,7 +1432,7 @@ while True:
         print("closed all positions at 2:55")
         ib.disconnect()
         quit(0)
-    ib.sleep(3)
+    ib.sleep(1)
 
 # Run infinitely
 ib.run()
