@@ -10,8 +10,6 @@ import math
 from statistics import mean
 import winsound
 
-import time
-
 # pnl_profit = pnl_profit(pnl_profit=False) #pickle as an object
 # pnl_profit_dump = pickle.dumps(pnl_profit)
 
@@ -640,82 +638,85 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         #     print(adx_direction)
         #     print(adx)
 
-        # calculate 9 EMA
-        ema_df = pd.DataFrame(columns=['ema9'])  # erase old stuff
-        # ema_df.ema9 = ta.ema(calc_bars['close'].tail(20), length=9)
-        ema_df.ema9 = ta.ema(calc_bars.close, length=9)
-        # print(ema_df.ema9.tail(20))
-        ema9 = round(ema_df.iloc[-1].ema9, 4)
-        # df.loc[symbol].EMA9 = ema
+        if 1 == 0:  # turn all of this off for now
+            # calculate 9 EMA
+            ema_df = pd.DataFrame(columns=['ema9'])  # erase old stuff
+            # ema_df.ema9 = ta.ema(calc_bars['close'].tail(20), length=9)
+            ema_df.ema9 = ta.ema(calc_bars.close, length=9)
+            # print(ema_df.ema9.tail(20))
+            ema9 = round(ema_df.iloc[-1].ema9, 4)
+            # df.loc[symbol].EMA9 = ema
 
-        # check for up signal
-        signal_up = True
-        for r in range(-2, -7, -1):  # check last five EMAs
-            if ema_df.iloc[r].ema9 > ema_df.iloc[r - 1].ema9:
-                pass
+            # check for up signal
+            signal_up = True
+            for r in range(-2, -7, -1):  # check last five EMAs
+                if ema_df.iloc[r].ema9 > ema_df.iloc[r - 1].ema9:
+                    pass
+                else:
+                    signal_up = False
+            if signal_up:
+                if not ema_df.iloc[-2].ema9 - ema_df.iloc[-11].ema9 > atr_1:  # use negative indexing to calculate from the most recent
+                    signal_up = False
+            if signal_up:
+                bars_up_count = 0
+                for r in range(-2, -12, -1):
+                    if calc_bars.iloc[r].close >= calc_bars.iloc[r].open:
+                        bars_up_count += 1
+                if bars_up_count < 7:
+                    signal_up = False
+            if signal_up:
+                df.loc[symbol].signal = "signal_up"
             else:
-                signal_up = False
-        if signal_up:
-            if not ema_df.iloc[-2].ema9 - ema_df.iloc[-11].ema9 > atr_1:  # use negative indexing to calculate from the most recent
-                signal_up = False
-        if signal_up:
-            bars_up_count = 0
-            for r in range(-2, -12, -1):
-                if calc_bars.iloc[r].close >= calc_bars.iloc[r].open:
-                    bars_up_count += 1
-            if bars_up_count < 7:
-                signal_up = False
-        if signal_up:
-            df.loc[symbol].signal = "signal_up"
-        else:
-            df.loc[symbol].signal = "none"
+                df.loc[symbol].signal = "none"
 
-        # check for down signal
-        signal_down = True
-        for r in range(-2, -7, -1):  # check last five EMAs
-            if ema_df.iloc[r].ema9 < ema_df.iloc[r - 1].ema9:
-                pass
-            else:
-                signal_down = False
-        if signal_down:
-            if not ema_df.iloc[-11].ema9 - ema_df.iloc[-2].ema9 > atr_1:  # use negative indexing to calculate from the most recent
-                signal_down = False
-        if signal_down:
-            bars_down_count = 0
-            for r in range(-2, -12, -1):
-                if calc_bars.iloc[r].close <= calc_bars.iloc[r].open:
-                    bars_down_count += 1
-            if bars_down_count < 7:
-                signal_down = False
-        if signal_down:
-            df.loc[symbol].signal = "signal_down"
-        # print("down", signal_down)
-        # if symbol == "TSLA":
-        # print("bars up", bars_up_count, "bars down", bars_down_count)
-        # print("ema-2, ema-11, atr", ema_df.iloc[-2].ema9, ema_df.iloc[-11].ema9, atr)
-        # print("ema-2, ema-7", ema_df.iloc[-2].ema9, ema_df.iloc[-7].ema9)
+            # check for down signal
+            signal_down = True
+            for r in range(-2, -7, -1):  # check last five EMAs
+                if ema_df.iloc[r].ema9 < ema_df.iloc[r - 1].ema9:
+                    pass
+                else:
+                    signal_down = False
+            if signal_down:
+                if not ema_df.iloc[-11].ema9 - ema_df.iloc[-2].ema9 > atr_1:  # use negative indexing to calculate from the most recent
+                    signal_down = False
+            if signal_down:
+                bars_down_count = 0
+                for r in range(-2, -12, -1):
+                    if calc_bars.iloc[r].close <= calc_bars.iloc[r].open:
+                        bars_down_count += 1
+                if bars_down_count < 7:
+                    signal_down = False
+            if signal_down:
+                df.loc[symbol].signal = "signal_down"
+            # print("down", signal_down)
+            # if symbol == "TSLA":
+            # print("bars up", bars_up_count, "bars down", bars_down_count)
+            # print("ema-2, ema-11, atr", ema_df.iloc[-2].ema9, ema_df.iloc[-11].ema9, atr)
+            # print("ema-2, ema-7", ema_df.iloc[-2].ema9, ema_df.iloc[-7].ema9)
 
-        # update atr_count
-        if previous_bar_time % time_frame == 0 and previous_bar_time != df.loc[symbol].set_time_atr:
-            try:  # sometimes bar data doesn't load for some amount of time
-                p_atr_count = df.loc[symbol].atr_count
-                p_open = df_bars.iloc[-2].open
-                p_close = df_bars.iloc[-2].close
-                # print(p_atr_count, p_open, p_close, atr)
-                if p_close >= p_open + atr:
-                    df.loc[symbol].set_time_atr = previous_bar_time
-                    if p_atr_count > 0:
-                        df.loc[symbol].atr_count = p_atr_count + 1
-                    else:
-                        df.loc[symbol].atr_count = 1
-                if p_close <= p_open - atr:
-                    df.loc[symbol].set_time_atr = previous_bar_time
-                    if p_atr_count < 0:
-                        df.loc[symbol].atr_count = p_atr_count - 1
-                    else:
-                        df.loc[symbol].atr_count = -1
-            except:
-                pass
+            # update atr_count
+            if previous_bar_time % time_frame == 0 and previous_bar_time != df.loc[symbol].set_time_atr:
+                try:  # sometimes bar data doesn't load for some amount of time
+                    p_atr_count = df.loc[symbol].atr_count
+                    p_open = df_bars.iloc[-2].open
+                    p_close = df_bars.iloc[-2].close
+                    # print(p_atr_count, p_open, p_close, atr)
+                    if p_close >= p_open + atr:
+                        df.loc[symbol].set_time_atr = previous_bar_time
+                        if p_atr_count > 0:
+                            df.loc[symbol].atr_count = p_atr_count + 1
+                        else:
+                            df.loc[symbol].atr_count = 1
+                    if p_close <= p_open - atr:
+                        df.loc[symbol].set_time_atr = previous_bar_time
+                        if p_atr_count < 0:
+                            df.loc[symbol].atr_count = p_atr_count - 1
+                        else:
+                            df.loc[symbol].atr_count = -1
+                except:
+                    pass
+
+    # print("barupdate : " + str(datetime.datetime.now() - xz))
 
 
 def onPendingTickers(tickers):
@@ -740,7 +741,7 @@ def onPendingTickers(tickers):
         mid = (t.ask + t.bid) / 2
         df.loc[symbol].mid_price = mid
         df.loc[symbol].spread = t.ask - t.bid
-        if df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
+        if 1 == 0 and df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
             # get previous bars closing vwap and store vwap at time_frame in case we want to reference it later
             if xx.minute % time_frame == 0 and xx.minute != df.loc[symbol].set_time_vwap:
                 df.loc[symbol].set_time_vwap = xx.minute
@@ -782,40 +783,40 @@ def onPendingTickers(tickers):
                     df.loc[symbol].vwap_per_1 = round((df.loc[symbol].vwap_1 - df.loc[symbol].vwap_2) / df.loc[symbol].atr, 2)
 
         df.loc[symbol].vwap = t.vwap
+    # print("ticker : " + str(datetime.datetime.now() - xx))
+    # # update atr_count
+    # if xx.minute % time_frame == 0 and xx.minute != df.loc[symbol].set_time_atr:
+    #     atr_count = df.loc[symbol].atr_count
+    #     if t.last >= df.loc[symbol].ticker_open + df.loc[symbol].atr:
+    #         df.loc[symbol].set_time_atr = xx.minute
+    #         if atr_count > 0:
+    #             df.loc[symbol].atr_count = atr_count + 1
+    #         else:
+    #             df.loc[symbol].atr_count = 1
+    #     if t.last <= df.loc[symbol].ticker_open - df.loc[symbol].atr:
+    #         df.loc[symbol].set_time_atr = xx.minute
+    #         if atr_count < 0:
+    #             df.loc[symbol].atr_count = atr_count - 1
+    #         else:
+    #             df.loc[symbol].atr_count = -1
 
-        # # update atr_count
-        # if xx.minute % time_frame == 0 and xx.minute != df.loc[symbol].set_time_atr:
-        #     atr_count = df.loc[symbol].atr_count
-        #     if t.last >= df.loc[symbol].ticker_open + df.loc[symbol].atr:
-        #         df.loc[symbol].set_time_atr = xx.minute
-        #         if atr_count > 0:
-        #             df.loc[symbol].atr_count = atr_count + 1
-        #         else:
-        #             df.loc[symbol].atr_count = 1
-        #     if t.last <= df.loc[symbol].ticker_open - df.loc[symbol].atr:
-        #         df.loc[symbol].set_time_atr = xx.minute
-        #         if atr_count < 0:
-        #             df.loc[symbol].atr_count = atr_count - 1
-        #         else:
-        #             df.loc[symbol].atr_count = -1
+    # df.loc[t.contract.symbol] = (t.ask - t.bid, t.vwap)
 
-        # df.loc[t.contract.symbol] = (t.ask - t.bid, t.vwap)
-
-        # print(t.vwap)
-        # ib.sleep(3)
-        # if t.contract.symbol == "TSLA":
-        #     tsla = t.vwap
-        # d = {'symbol': [t.contract.symbol], 'spread': [t.ask - t.bid], 'vwap': [t.vwap]}
-        # print(df)
-        # print(df.loc[t.contract.symbol])
-        # df.loc[t.contract.symbol] = (t.ask - t.bid, t.vwap)
-        # df = pd.DataFrame(data=d)
-        # df1 = pd.DataFrame(data=d)
-        # df = pd.concat({'symbol': [t.contract.symbol], 'spread': [t.ask - t.bid], 'vwap': [t.vwap]}, ignore_index=True)
-        # df = pd.concat([df,df1], ignore_index=True)
-        # if len(df)>10:
-        #     df = df.drop([0]).reset_index(drop=True)
-        # print(df)
+    # print(t.vwap)
+    # ib.sleep(3)
+    # if t.contract.symbol == "TSLA":
+    #     tsla = t.vwap
+    # d = {'symbol': [t.contract.symbol], 'spread': [t.ask - t.bid], 'vwap': [t.vwap]}
+    # print(df)
+    # print(df.loc[t.contract.symbol])
+    # df.loc[t.contract.symbol] = (t.ask - t.bid, t.vwap)
+    # df = pd.DataFrame(data=d)
+    # df1 = pd.DataFrame(data=d)
+    # df = pd.concat({'symbol': [t.contract.symbol], 'spread': [t.ask - t.bid], 'vwap': [t.vwap]}, ignore_index=True)
+    # df = pd.concat([df,df1], ignore_index=True)
+    # if len(df)>10:
+    #     df = df.drop([0]).reset_index(drop=True)
+    # print(df)
     # print(tickers)
     # print("--------------------------")
 
@@ -992,447 +993,464 @@ ib.reqPnL(account)
 ib.barUpdateEvent += onBarUpdateNew
 
 daily_trade_count = 0
-while True:
+
+# keep track of last trade_loop, we don't want to loop too much
+global last_trade_loop_time
+last_trade_loop_time = datetime.datetime.now()
+
+
+def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event listener
     x = datetime.datetime.now()  # x.hour returns hour
-    df = df.sort_values(by=['spread %'])
-    i = 0
-    # print(df.head(10))
-    print(df[['signal', 'atr_count', 'stairs', 'adx_signal', 'spread %', 'spread', 'vwap',
-              'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'set_time_vwap', 'banned', 'calculable']].head(20))
-    positions = ib.positions()  # get positions
-    df_positions = util.df(positions)  # create dataframe with positions
-    # print(df_positions)
-    open_trades = ib.openTrades()
-    df_open_trades = util.df(open_trades)
-    # print(df_open_trades)
-
-    # check if a close all command has been issued
-    outside_command_path = "json/" + "outside_command.json"
-    with open(outside_command_path, 'r') as openfile:
-        string = json.load(openfile)
-    if string == "s":  # switching from string to boolean
-        print("close all command received")
-        close_position(1)
-        print("all positions closed")
-        quit()
-    if string == "s75":  # switching from string to boolean
-        print("reduce positions by 75% command received")
-        close_position(.75)
-        outside_command_path = "json/" + "outside_command.json"
-        command = ""
-        with open(outside_command_path, 'w') as file_object:  # open the file in write mode
-            json.dump(command, file_object)
-        print("positions reduced by 75%")
-
-    # check if a symbol has been banned
-    path = "json/" + "close.json"
-    with open(path, 'r') as openfile:
-        string = json.load(openfile)
-    if string != "":
-        close_single_position(string)
-        print(string + " has been closed")
-        # df.loc[string].banned = "yes"
-        string = ""
-        with open(path, 'w') as file_object:
-            json.dump(string, file_object)
-
-    pnl = ib.pnl()
-
-    index_count = 0  # doesn't affect trading logic, just controls a print statement
-
-    max_position_count = 10 + 1  # add one if we're holding a long term SPY position // Allows 10 positions to be open at one time but not more.
-    tradeable_count = 10  # only open trades for the top symbols in the sorted df corresponds to tradeable // only look at the top 8 symbols
-    calculable_count = tradeable_count + 5
-    max_daily_trades = 1000  # limits max trades per day to 10
-    atr_count_entry = 3  # place a limit order when atr_count == 3
-    for index, row in df.iterrows():
-        symbol = index
-        if symbol == "SPY":
-            print("symbol is spy")
-            continue
-        vwap = df.loc[index].vwap
-        # vwap = round(df.loc[index].vwap_1, 2)
-        mid = df.loc[index].mid_price
-        atr = df.loc[index].atr
-        bar_open = df.loc[index].open
-        last_check_minute = df.loc[index].set_time_vwap
-        contract = df.loc[index].contract
-
-        outside_command_path = "json/" + "risk.json"
-        with open(outside_command_path, 'r') as openfile:
-            string = json.load(openfile)
-        risk = float(string)
-
-        # check if we should open a symbol
-        open_position = False
-        path = "json/" + "open.json"
-        with open(path, 'r') as openfile:
-            string = json.load(openfile)
-        if string == symbol:
-            open_position = True
-            with open(path, 'w') as file_object:  # open the file in write mode
-                string = ""
-                json.dump(string, file_object)
-
-        # probably delete. keep track of big movements
-        # if abs(df.loc[symbol].sum_percent) >= 4:
-        #     path = "json/" + "sum_percent.json"
-        #     with open(path, 'r') as openfile:
-        #         list = json.load(openfile)
-        #     list.append(str(x.hour) + ":" + str(x.minute) + ":" + str(x.second) + " " + str(symbol) + " " + str(df.loc[symbol].sum_percent) + "............................")
-        #     with open(path, 'w') as file_object:  # open the file in write mode
-        #         json.dump(list, file_object)
-
-        vwap_per_1 = df.loc[symbol].vwap_per_1
-        vwap_per_2 = df.loc[symbol].vwap_per_2
-        vwap_per_3 = df.loc[symbol].vwap_per_3
-        atr_count = df.loc[symbol].atr_count
-
-        # save vwap_per to file
-        if x.minute % time_frame == 0 and x.minute != df.loc[symbol].set_time_vwap_per:
-            if abs(df.loc[symbol].vwap_per_1) >= .10 and index_count < 15:
-                path = "json/" + "vwap_per.json"
-                with open(path, 'r') as openfile:
-                    list = json.load(openfile)
-                list.append(str(x.hour) + ":" + str(x.minute) + ":" + str(x.second) + " " + str(symbol) + " " + str(vwap_per_1) + " " + str(vwap_per_2) + " " + str(vwap_per_3) + "............................")
-                with open(path, 'w') as file_object:  # open the file in write mode
-                    json.dump(list, file_object)
-        if abs(df.loc[symbol].vwap_per_1) >= .10 and index_count < 15:
-            print(str(symbol) + " " + str(vwap_per_1) + " " + str(vwap_per_2) + " " + str(vwap_per_3))
-
-        # save atr_count to file
-        if abs(df.loc[symbol].atr_count) >= 4 and index_count < 15:
-            path = "json/" + "atr_count.json"
-            with open(path, 'r') as openfile:
-                list = json.load(openfile)
-            list.append(str(x.hour) + ":" + str(x.minute) + ":" + str(x.second) + " " + str(symbol) + " " + str(mid) + " " + str(atr_count) + "............................")
-            with open(path, 'w') as file_object:  # open the file in write mode
-                json.dump(list, file_object)
-        index_count += 1
-
-        tradeable = False
-        if tradeable_count > 0:
-            tradeable = True
-        tradeable_count -= 1
-
-        if calculable_count > 0:  # help limit resource use by only calculating adx on tradeable contracts
-            df.loc[contract.symbol].calculable = "yes"
-        else:
-            df.loc[contract.symbol].calculable = "no"
-        calculable_count -= 1
-
+    global last_trade_loop_time
+    last_loop_seconds = (x - last_trade_loop_time).total_seconds()
+    if bars.contract.symbol == symbols[0] and last_loop_seconds >= 3:
+        last_trade_loop_time = x
         try:
-            df.loc[symbol]["spread %"] = mean(dict_spreads[symbol])
-        except:
-            pass
+            global df
+            df = df.sort_values(by=['spread %'])
+            i = 0
+            # print(df.head(10))
+            print(df[['signal', 'atr_count', 'stairs', 'adx_signal', 'spread %', 'spread', 'vwap',
+                      'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'set_time_vwap', 'banned', 'calculable']].head(20))
+            positions = ib.positions()  # get positions
+            df_positions = util.df(positions)  # create dataframe with positions
+            # print(df_positions)
+            open_trades = ib.openTrades()
+            df_open_trades = util.df(open_trades)
+            # print(df_open_trades)
+            # check if a close all command has been issued
+            outside_command_path = "json/" + "outside_command.json"
+            with open(outside_command_path, 'r') as openfile:
+                string = json.load(openfile)
+            if string == "s":  # switching from string to boolean
+                print("close all command received")
+                close_position(1)
+                print("all positions closed")
+                quit()
+            if string == "s75":  # switching from string to boolean
+                print("reduce positions by 75% command received")
+                close_position(.75)
+                outside_command_path = "json/" + "outside_command.json"
+                command = ""
+                with open(outside_command_path, 'w') as file_object:  # open the file in write mode
+                    json.dump(command, file_object)
+                print("positions reduced by 75%")
 
-        # wait_for_timeframe()  # make sure the first bar of the day has passed
+            # check if a symbol has been banned
+            path = "json/" + "close.json"
+            with open(path, 'r') as openfile:
+                string = json.load(openfile)
+            if string != "":
+                close_single_position(string)
+                print(string + " has been closed")
+                # df.loc[string].banned = "yes"
+                string = ""
+                with open(path, 'w') as file_object:
+                    json.dump(string, file_object)
 
-        if df.loc[index].hasnans:  # wait for all the data to load
-            print(symbol + " has NaN")
-            continue
-        if x.hour == 8:
-            if x.minute < 31:
-                continue
+            pnl = ib.pnl()
 
-        df.loc[symbol].sum_percent = int(sum(movement_dict[symbol]) / atr)  # sum of recent movement in %
+            index_count = 0  # doesn't affect trading logic, just controls a print statement
 
-        profit = 0
-        df.loc[symbol].pnl = 0
-        if len(positions) > 0:
-            for i in df_positions.index:
-                if df_positions.contract[i] == contract:
-                    profit = round((mid - df_positions.avgCost[i]) * df_positions.position[i], 2)
-                    df.loc[index].pnl = profit
-
-        i += 1
-        if not tradeable and contract not in [i.contract for i in positions]:  # iterate over the top 10 spread % and allow a position to be handled if > 10
-            continue
-
-        vwap_1 = df.loc[symbol].vwap_1
-        vwap_2 = df.loc[symbol].vwap_2
-        vwap_3 = df.loc[symbol].vwap_3
-        vwap_o = df.loc[symbol].vwap_o
-        vwap_h = df.loc[symbol].vwap_h
-        vwap_l = df.loc[symbol].vwap_l
-
-        if vwap_1 > vwap_2:
-            df.loc[symbol].direction = "up"
-        elif vwap_1 < vwap_2:
-            df.loc[symbol].direction = "dn"
-
-        qty = int(round(risk / atr, 0))
-
-        desired_orders = []
-        order_type = "none"
-
-        # open via command
-        if open_position == True:
-            if df.loc[symbol].direction == "up":
-                market_order = MarketOrder("BUY", qty)  # original
-                ib.placeOrder(contract, market_order)
-                ib.sleep(0)
-
-            if df.loc[symbol].direction == "dn":
-                market_order = MarketOrder("SELL", qty)  # original
-                ib.placeOrder(contract, market_order)
-                ib.sleep(0)
-
-        ##############################################################################################################
-        # open and manage positions based on 'signal'
-        # open a new order to manage
-        if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
-            if tradeable and df.loc[symbol].adx_signal == "signal_buy":
-                df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}  # keep track of last trade time so we don't over trade
-                print(symbol, "Buying - Signal Up")
-                market_order = MarketOrder("BUY", abs(qty))
-                ib.placeOrder(contract, market_order)
-                ib.sleep(0)
-
-            if tradeable and df.loc[symbol].adx_signal == "signal_sell":
-                df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}  # keep track of last trade time so we don't over trade
-                print(symbol, "Selling - Signal Down")
-                market_order = MarketOrder("SELL", abs(qty))
-                ib.placeOrder(contract, market_order)
-                ib.sleep(0)
-
-        # open and manage positions based on atr_count
-        # open a new order to manage
-        if 1 == 0 and contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
-            # control over trading a trend
-            if df.loc[symbol].in_trade == "up" and atr_count > 0:  # set atr_count to 0 if we just participated in a trend
-                df.loc[symbol].in_trade = "none"
-                df.loc[symbol].atr_count = 0
-                continue
-            elif df.loc[symbol].in_trade == "dn" and atr_count < 0:
-                df.loc[symbol].in_trade = "none"
-                df.loc[symbol].atr_count = 0
-                continue
-            else:
-                df.loc[symbol].in_trade = "none"
-
-            if tradeable and len(df_positions.index) < max_position_count and abs(atr_count) >= atr_count_entry:  # limit positions to max_position_count
-                if atr_count >= atr_count_entry:
-                    print("BUY", str(qty), str(round(bar_open + atr, 2)))
-                    place_stop_order("BUY", qty, round(bar_open + atr, 2))
-                    print(symbol + ": opening buy order")
-                if atr_count <= -abs(atr_count_entry):
-                    print("SELL", str(qty), str(round(bar_open - atr, 2)))
-                    place_stop_order("SELL", qty, round(bar_open - atr, 2))
-                    print(symbol + ": opening sell order")
-
-        # cancel an order that is no longer relevant
-        if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and abs(atr_count) < atr_count_entry:
-            for trade in open_trades:
-                if trade.contract.symbol == symbol:
-                    cancel_single_order(trade.order)
-                    print(symbol + ": cancelling order")
-
-        # modify an opening orders price
-        if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
-            for trade in open_trades:
-                if trade.contract.symbol == symbol:
-                    if trade.order.action == "BUY":
-                        if trade.order.auxPrice != round(bar_open + atr, 2):
-                            trade.order.auxPrice = round(bar_open + atr, 2)
-                            ib.placeOrder(contract, trade.order)
-                            print(str(symbol) + " auxPrice changed to " + str(round(bar_open + atr, 3)))
-                    if trade.order.action == "SELL":
-                        if trade.order.auxPrice != round(bar_open - atr, 2):
-                            trade.order.auxPrice = round(bar_open - atr, 2)
-                            ib.placeOrder(contract, trade.order)
-                            print(str(symbol) + " auxPrice changed to " + str(round(bar_open - atr, 3)))
-
-        # handle open positions and send closing orders
-        if contract in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
-            for po in positions:
-                if po.contract.symbol == symbol:
-                    qty_close = po.position
-                    avg_cost = po.avgCost
-                    if qty_close > 0:
-                        df.loc[symbol].in_trade = "up"
-                        action = "SELL"
-                        price1 = round(avg_cost + (atr * 1), 2)
-                        price2 = round(avg_cost - (atr * 1), 2)
-                    if qty_close < 0:
-                        df.loc[symbol].in_trade = "dn"
-                        action = "BUY"
-                        price1 = round(avg_cost - (atr * 1), 2)
-                        price2 = round(avg_cost + (atr * 1), 2)
-                    order1 = LimitOrder(action, abs(qty_close), price1)
-                    order2 = StopOrder(action, abs(qty_close), price2)
-                    place_oca_orders(contract, order1, order2)
-
-        ##############################################################################################################
-        """
-        # handle active positions
-        if contract in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
-            # we are in a position
-            idx = df_positions.loc[df_positions['contract'] == contract].index[0]  # locate index of the contract
-            current_qty = df_positions.position[idx]
-            avgCost = round(df_positions.avgCost[idx], 2)
-            # reverse trade and follow vwap or close
-            # if current_qty < 0:  # revert
-            if current_qty > 0:  # original
-                if vwap_1 < vwap_2 < vwap_3 or mid < vwap_1 - atr:  # and df.loc[symbol].direction != "sell":
-                    # market_order = MarketOrder("SELL", abs(current_qty * 2))
-                    market_order = MarketOrder("SELL", abs(current_qty))
-                    ib.placeOrder(contract, market_order)
-                    df.loc[symbol].banned = "yes"  # ban now to limit trading in the future
-                    ib.sleep(0)
-                    # df.loc[symbol].direction = "sell"
-
-            # elif current_qty > 0:  # revert
-            elif current_qty < 0:  # original
-                if vwap_1 > vwap_2 > vwap_3 or mid > vwap_1 + atr:  # and df.loc[symbol].direction != "buy":
-                    # market_order = MarketOrder("BUY", abs(current_qty * 2))
-                    market_order = MarketOrder("BUY", abs(current_qty))
-                    df.loc[symbol].banned = "yes"  # ban now to limit trading in the future
-                    ib.placeOrder(contract, market_order)
-                    ib.sleep(0)
-                    # df.loc[symbol].direction = "buy"
-            # if current_qty > 0:
-            #     desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(vwap, 2), 'totalQuantity': abs(current_qty) * 1, 'action': 'SELL'})
-            #     # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost - (atr), 2), 'totalQuantity': abs(current_qty) * 1, 'action': 'SELL'})
-            #     # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(low + (atr / 2), 2),'totalQuantity': abs(current_qty), 'action': 'SELL'})
-            #
-            # elif current_qty < 0:
-            #     desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(vwap, 2), 'totalQuantity': abs(current_qty) * 1, 'action': 'BUY'})
-            #     # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost + (atr), 2), 'totalQuantity': abs(current_qty) * 1, 'action': 'BUY'})
-            #     # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(high - (atr / 2), 2),'totalQuantity': abs(current_qty), 'action': 'BUY'})
-            order_type = "close"
-
-        # open trades if no position
-        elif contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
-            # we aren't in a position
-            continue
-            if x.hour == 8:
-                if x.minute < 45:
+            max_position_count = 10 + 1  # add one if we're holding a long term SPY position // Allows 10 positions to be open at one time but not more.
+            tradeable_count = 10  # only open trades for the top symbols in the sorted df corresponds to tradeable // only look at the top 8 symbols
+            calculable_count = tradeable_count + 5
+            max_daily_trades = 1000  # limits max trades per day to 10
+            atr_count_entry = 3  # place a limit order when atr_count == 3
+            for index, row in df.iterrows():
+                symbol = index
+                if symbol == "SPY":
+                    print("symbol is spy")
                     continue
-            if tradeable and len(df_positions.index) < max_position_count and df.loc[symbol].banned != "yes" and daily_trade_count < max_daily_trades:  # limit positions to max_position_count
-                # if mid > vwap:
-                #     desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(vwap, 2), 'totalQuantity': qty, 'action': 'SELL'})
-                # elif mid < vwap:
-                #     desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(vwap, 2), 'totalQuantity': qty, 'action': 'BUY'})
-                # order_type = "open"
-                # if vwap_1 < vwap_2 and vwap_2 < vwap_3:  # and df.loc[symbol].direction != "sell":
-                # if vwap < vwap_o - atr:
-                if vwap_per_1 <= -.10 and vwap_per_2 <= -.10 and vwap_per_3 <= -.10:
-                    # market_order = MarketOrder("BUY", qty)  # revert
-                    market_order = MarketOrder("SELL", qty)  # original
-                    ib.placeOrder(contract, market_order)
-                    ib.sleep(0)
-                    daily_trade_count += 1
-                    # df.loc[symbol].direction = "sell"
-                # elif vwap_1 > vwap_2 and vwap_2 > vwap_3:  # and df.loc[symbol].direction != "buy":
-                # elif vwap > vwap_o + atr:
-                elif vwap_per_1 >= .10 and vwap_per_2 >= .10 and vwap_per_3 >= .10:
-                    # market_order = MarketOrder("SELL", qty)  # revert
-                    market_order = MarketOrder("BUY", qty)  # original
-                    ib.placeOrder(contract, market_order)
-                    ib.sleep(0)
-                    daily_trade_count += 1
-                    # df.loc[symbol].direction = "buy"
-                # order_type = "open"
+                vwap = df.loc[index].vwap
+                # vwap = round(df.loc[index].vwap_1, 2)
+                mid = df.loc[index].mid_price
+                atr = df.loc[index].atr
+                bar_open = df.loc[index].open
+                last_check_minute = df.loc[index].set_time_vwap
+                contract = df.loc[index].contract
 
-        # build dataframe of open orders
-        open_orders = ib.openTrades()
-        orders = [ord.order for ord in open_orders]
-        orders = util.df(orders)
-        contracts = [con.contract for con in open_orders]
-        contracts = util.df(contracts)
-        orders_status = [stat.orderStatus for stat in open_orders]
-        orders_status = util.df(orders_status)
-        trailingPercent = 0
+                outside_command_path = "json/" + "risk.json"
+                with open(outside_command_path, 'r') as openfile:
+                    string = json.load(openfile)
+                risk = float(string)
 
-        if len(open_orders) > 0:
-            open_orders = pd.concat([orders, contracts, orders_status], axis=1)  # combine dataframes into one
-            open_orders = open_orders.loc[:, ~open_orders.columns.duplicated()].copy()  # remove duplicate columns to prevent errors
-            for i in open_orders.index:
-                if open_orders.symbol[i] != symbol:
-                    open_orders = open_orders.drop([i])  # drop orders not related to the current symbol
-            open_orders.reset_index(drop=True, inplace=True)  # reindex the dataframe after dropping rows
-            # open_orders = open_orders.reindex(range(len(open_orders))) # reindex the dataframe after dropping rows
-        # print(open_orders)
+                # check if we should open a symbol
+                open_position = False
+                path = "json/" + "open.json"
+                with open(path, 'r') as openfile:
+                    string = json.load(openfile)
+                if string == symbol:
+                    open_position = True
+                    with open(path, 'w') as file_object:  # open the file in write mode
+                        string = ""
+                        json.dump(string, file_object)
 
-        # modify open orders
-        desired_orders_df = util.df(desired_orders)
-        # if len(open_orders) > 0 and order_type == "close":
-        if len(open_orders) > 0 and len(desired_orders) > 0:
-            for i in open_orders.index:
-                for e in desired_orders_df.index:
-                    if open_orders.symbol[i] == desired_orders_df.symbol[e] and open_orders.orderType[i] == desired_orders_df.orderType[e] and open_orders.action[i] == desired_orders_df.action[e]:
-                        if open_orders.orderType[i] == "LMT":
-                            # for trailing limit orders
-                            # if current_qty > 0:
-                            #     if open_orders.lmtPrice[i] > desired_orders_df.price[e]:  # for reversal
-                            #         change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
-                            # elif current_qty < 0:
-                            #     if open_orders.lmtPrice[i] < desired_orders_df.price[e]:  # for reversal
-                            #         change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
-                            # for fixed limit orders
-                            if open_orders.lmtPrice[i] != desired_orders_df.price[e]:
-                                # print(open_orders.orderId[i], open_orders.lmtPrice[i], desired_orders_df.price[e])
-                                # cprint("changing an order price")
-                                change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
-                                print(symbol + " modifying order")
+                # probably delete. keep track of big movements
+                # if abs(df.loc[symbol].sum_percent) >= 4:
+                #     path = "json/" + "sum_percent.json"
+                #     with open(path, 'r') as openfile:
+                #         list = json.load(openfile)
+                #     list.append(str(x.hour) + ":" + str(x.minute) + ":" + str(x.second) + " " + str(symbol) + " " + str(df.loc[symbol].sum_percent) + "............................")
+                #     with open(path, 'w') as file_object:  # open the file in write mode
+                #         json.dump(list, file_object)
 
-                        else:
-                            if open_orders.auxPrice[i] != desired_orders_df.price[e]:
-                                # print(open_orders.orderId[i],open_orders.auxPrice[i],desired_orders_df.price[e])
-                                # cprint("changing an order price")
-                                change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
-                                print(symbol + " modifying order")
-        # i += 1
-        # if i == 10:  # iterate over the top 10 spread %
-        #     break
-        continue
-        # send orders to open
-        if tradeable and order_type == "open" and contract not in [i.contract for i in open_trades]:  # don't open more trades if a trade is waiting to be executed
-            desired_orders = util.df(desired_orders)
-            place_single_order(desired_orders, contract, order_type)
-            print(symbol + " placing order")
+                vwap_per_1 = df.loc[symbol].vwap_per_1
+                vwap_per_2 = df.loc[symbol].vwap_per_2
+                vwap_per_3 = df.loc[symbol].vwap_per_3
+                atr_count = df.loc[symbol].atr_count
 
-        # send orders to close
-        if order_type == "close" and contract not in [i.contract for i in open_trades]:
-            desired_orders = util.df(desired_orders)
-            place_single_order(desired_orders, contract, order_type)
+                # # save vwap_per to file
+                # if x.minute % time_frame == 0 and x.minute != df.loc[symbol].set_time_vwap_per:
+                #     if abs(df.loc[symbol].vwap_per_1) >= .10 and index_count < 15:
+                #         path = "json/" + "vwap_per.json"
+                #         with open(path, 'r') as openfile:
+                #             list = json.load(openfile)
+                #         list.append(str(x.hour) + ":" + str(x.minute) + ":" + str(x.second) + " " + str(symbol) + " " + str(vwap_per_1) + " " + str(vwap_per_2) + " " + str(vwap_per_3) + "............................")
+                #         with open(path, 'w') as file_object:  # open the file in write mode
+                #             json.dump(list, file_object)
+                # if abs(df.loc[symbol].vwap_per_1) >= .10 and index_count < 15:
+                #     print(str(symbol) + " " + str(vwap_per_1) + " " + str(vwap_per_2) + " " + str(vwap_per_3))
+
+                # # save atr_count to file
+                # if abs(df.loc[symbol].atr_count) >= 4 and index_count < 15:
+                #     path = "json/" + "atr_count.json"
+                #     with open(path, 'r') as openfile:
+                #         list = json.load(openfile)
+                #     list.append(str(x.hour) + ":" + str(x.minute) + ":" + str(x.second) + " " + str(symbol) + " " + str(mid) + " " + str(atr_count) + "............................")
+                #     with open(path, 'w') as file_object:  # open the file in write mode
+                #         json.dump(list, file_object)
+                # index_count += 1
+
+                tradeable = False
+                if tradeable_count > 0:
+                    tradeable = True
+                tradeable_count -= 1
+
+                if calculable_count > 0:  # help limit resource use by only calculating adx on tradeable contracts
+                    df.loc[contract.symbol].calculable = "yes"
+                else:
+                    df.loc[contract.symbol].calculable = "no"
+                calculable_count -= 1
+
+                try:
+                    df.loc[symbol]["spread %"] = mean(dict_spreads[symbol])
+                except:
+                    pass
+
+                # wait_for_timeframe()  # make sure the first bar of the day has passed
+
+                # if df.loc[index].hasnans:  # wait for all the data to load
+                #     print(symbol + " has NaN")
+                #     continue
+                if x.hour == 8:
+                    if x.minute < 31:
+                        continue
+
+                df.loc[symbol].sum_percent = int(sum(movement_dict[symbol]) / atr)  # sum of recent movement in %
+
+                profit = 0
+                df.loc[symbol].pnl = 0
+                if len(positions) > 0:
+                    for i in df_positions.index:
+                        if df_positions.contract[i] == contract:
+                            profit = round((mid - df_positions.avgCost[i]) * df_positions.position[i], 2)
+                            df.loc[index].pnl = profit
+
+                i += 1
+                if not tradeable and contract not in [i.contract for i in positions]:  # iterate over the top 10 spread % and allow a position to be handled if > 10
+                    continue
+
+                vwap_1 = df.loc[symbol].vwap_1
+                vwap_2 = df.loc[symbol].vwap_2
+                vwap_3 = df.loc[symbol].vwap_3
+                vwap_o = df.loc[symbol].vwap_o
+                vwap_h = df.loc[symbol].vwap_h
+                vwap_l = df.loc[symbol].vwap_l
+
+                if vwap_1 > vwap_2:
+                    df.loc[symbol].direction = "up"
+                elif vwap_1 < vwap_2:
+                    df.loc[symbol].direction = "dn"
+
+                qty = int(round(risk / atr, 0))
+
+                desired_orders = []
+                order_type = "none"
+
+                # open via command
+                if open_position == True:
+                    if df.loc[symbol].direction == "up":
+                        market_order = MarketOrder("BUY", qty)  # original
+                        ib.placeOrder(contract, market_order)
+                        ib.sleep(0)
+
+                    if df.loc[symbol].direction == "dn":
+                        market_order = MarketOrder("SELL", qty)  # original
+                        ib.placeOrder(contract, market_order)
+                        ib.sleep(0)
+
+                ##############################################################################################################
+                # open and manage positions based on 'signal'
+                # open a new order to manage
+                if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
+                    if tradeable and df.loc[symbol].adx_signal == "signal_buy":
+                        df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}  # keep track of last trade time so we don't over trade
+                        print(symbol, "Buying - Signal Up")
+                        market_order = MarketOrder("BUY", abs(qty))
+                        ib.placeOrder(contract, market_order)
+                        ib.sleep(0)
+
+                    if tradeable and df.loc[symbol].adx_signal == "signal_sell":
+                        df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}  # keep track of last trade time so we don't over trade
+                        print(symbol, "Selling - Signal Down")
+                        market_order = MarketOrder("SELL", abs(qty))
+                        ib.placeOrder(contract, market_order)
+                        ib.sleep(0)
+
+                # open and manage positions based on atr_count
+                # open a new order to manage
+                if 1 == 0 and contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
+                    # control over trading a trend
+                    if df.loc[symbol].in_trade == "up" and atr_count > 0:  # set atr_count to 0 if we just participated in a trend
+                        df.loc[symbol].in_trade = "none"
+                        df.loc[symbol].atr_count = 0
+                        continue
+                    elif df.loc[symbol].in_trade == "dn" and atr_count < 0:
+                        df.loc[symbol].in_trade = "none"
+                        df.loc[symbol].atr_count = 0
+                        continue
+                    else:
+                        df.loc[symbol].in_trade = "none"
+
+                    if tradeable and len(df_positions.index) < max_position_count and abs(atr_count) >= atr_count_entry:  # limit positions to max_position_count
+                        if atr_count >= atr_count_entry:
+                            print("BUY", str(qty), str(round(bar_open + atr, 2)))
+                            place_stop_order("BUY", qty, round(bar_open + atr, 2))
+                            print(symbol + ": opening buy order")
+                        if atr_count <= -abs(atr_count_entry):
+                            print("SELL", str(qty), str(round(bar_open - atr, 2)))
+                            place_stop_order("SELL", qty, round(bar_open - atr, 2))
+                            print(symbol + ": opening sell order")
+
+                # cancel an order that is no longer relevant
+                if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and abs(atr_count) < atr_count_entry:
+                    for trade in open_trades:
+                        if trade.contract.symbol == symbol:
+                            cancel_single_order(trade.order)
+                            print(symbol + ": cancelling order")
+
+                # modify an opening orders price
+                if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
+                    for trade in open_trades:
+                        if trade.contract.symbol == symbol:
+                            if trade.order.action == "BUY":
+                                if trade.order.auxPrice != round(bar_open + atr, 2):
+                                    trade.order.auxPrice = round(bar_open + atr, 2)
+                                    ib.placeOrder(contract, trade.order)
+                                    print(str(symbol) + " auxPrice changed to " + str(round(bar_open + atr, 3)))
+                            if trade.order.action == "SELL":
+                                if trade.order.auxPrice != round(bar_open - atr, 2):
+                                    trade.order.auxPrice = round(bar_open - atr, 2)
+                                    ib.placeOrder(contract, trade.order)
+                                    print(str(symbol) + " auxPrice changed to " + str(round(bar_open - atr, 3)))
+
+                # handle open positions and send closing orders
+                if contract in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
+                    for po in positions:
+                        if po.contract.symbol == symbol:
+                            qty_close = po.position
+                            avg_cost = po.avgCost
+                            if qty_close > 0:
+                                df.loc[symbol].in_trade = "up"
+                                action = "SELL"
+                                price1 = round(avg_cost + (atr * 1), 2)
+                                price2 = round(avg_cost - (atr * 1), 2)
+                            if qty_close < 0:
+                                df.loc[symbol].in_trade = "dn"
+                                action = "BUY"
+                                price1 = round(avg_cost - (atr * 1), 2)
+                                price2 = round(avg_cost + (atr * 1), 2)
+                            order1 = LimitOrder(action, abs(qty_close), price1)
+                            order2 = StopOrder(action, abs(qty_close), price2)
+                            place_oca_orders(contract, order1, order2)
+
+                ##############################################################################################################
+                """
+                # handle active positions
+                if contract in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
+                    # we are in a position
+                    idx = df_positions.loc[df_positions['contract'] == contract].index[0]  # locate index of the contract
+                    current_qty = df_positions.position[idx]
+                    avgCost = round(df_positions.avgCost[idx], 2)
+                    # reverse trade and follow vwap or close
+                    # if current_qty < 0:  # revert
+                    if current_qty > 0:  # original
+                        if vwap_1 < vwap_2 < vwap_3 or mid < vwap_1 - atr:  # and df.loc[symbol].direction != "sell":
+                            # market_order = MarketOrder("SELL", abs(current_qty * 2))
+                            market_order = MarketOrder("SELL", abs(current_qty))
+                            ib.placeOrder(contract, market_order)
+                            df.loc[symbol].banned = "yes"  # ban now to limit trading in the future
+                            ib.sleep(0)
+                            # df.loc[symbol].direction = "sell"
         
-        #####------ check if profit and close
+                    # elif current_qty > 0:  # revert
+                    elif current_qty < 0:  # original
+                        if vwap_1 > vwap_2 > vwap_3 or mid > vwap_1 + atr:  # and df.loc[symbol].direction != "buy":
+                            # market_order = MarketOrder("BUY", abs(current_qty * 2))
+                            market_order = MarketOrder("BUY", abs(current_qty))
+                            df.loc[symbol].banned = "yes"  # ban now to limit trading in the future
+                            ib.placeOrder(contract, market_order)
+                            ib.sleep(0)
+                            # df.loc[symbol].direction = "buy"
+                    # if current_qty > 0:
+                    #     desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(vwap, 2), 'totalQuantity': abs(current_qty) * 1, 'action': 'SELL'})
+                    #     # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost - (atr), 2), 'totalQuantity': abs(current_qty) * 1, 'action': 'SELL'})
+                    #     # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(low + (atr / 2), 2),'totalQuantity': abs(current_qty), 'action': 'SELL'})
+                    #
+                    # elif current_qty < 0:
+                    #     desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(vwap, 2), 'totalQuantity': abs(current_qty) * 1, 'action': 'BUY'})
+                    #     # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost + (atr), 2), 'totalQuantity': abs(current_qty) * 1, 'action': 'BUY'})
+                    #     # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(high - (atr / 2), 2),'totalQuantity': abs(current_qty), 'action': 'BUY'})
+                    order_type = "close"
+        
+                # open trades if no position
+                elif contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
+                    # we aren't in a position
+                    continue
+                    if x.hour == 8:
+                        if x.minute < 45:
+                            continue
+                    if tradeable and len(df_positions.index) < max_position_count and df.loc[symbol].banned != "yes" and daily_trade_count < max_daily_trades:  # limit positions to max_position_count
+                        # if mid > vwap:
+                        #     desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(vwap, 2), 'totalQuantity': qty, 'action': 'SELL'})
+                        # elif mid < vwap:
+                        #     desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(vwap, 2), 'totalQuantity': qty, 'action': 'BUY'})
+                        # order_type = "open"
+                        # if vwap_1 < vwap_2 and vwap_2 < vwap_3:  # and df.loc[symbol].direction != "sell":
+                        # if vwap < vwap_o - atr:
+                        if vwap_per_1 <= -.10 and vwap_per_2 <= -.10 and vwap_per_3 <= -.10:
+                            # market_order = MarketOrder("BUY", qty)  # revert
+                            market_order = MarketOrder("SELL", qty)  # original
+                            ib.placeOrder(contract, market_order)
+                            ib.sleep(0)
+                            daily_trade_count += 1
+                            # df.loc[symbol].direction = "sell"
+                        # elif vwap_1 > vwap_2 and vwap_2 > vwap_3:  # and df.loc[symbol].direction != "buy":
+                        # elif vwap > vwap_o + atr:
+                        elif vwap_per_1 >= .10 and vwap_per_2 >= .10 and vwap_per_3 >= .10:
+                            # market_order = MarketOrder("SELL", qty)  # revert
+                            market_order = MarketOrder("BUY", qty)  # original
+                            ib.placeOrder(contract, market_order)
+                            ib.sleep(0)
+                            daily_trade_count += 1
+                            # df.loc[symbol].direction = "buy"
+                        # order_type = "open"
+        
+                # build dataframe of open orders
+                open_orders = ib.openTrades()
+                orders = [ord.order for ord in open_orders]
+                orders = util.df(orders)
+                contracts = [con.contract for con in open_orders]
+                contracts = util.df(contracts)
+                orders_status = [stat.orderStatus for stat in open_orders]
+                orders_status = util.df(orders_status)
+                trailingPercent = 0
+        
+                if len(open_orders) > 0:
+                    open_orders = pd.concat([orders, contracts, orders_status], axis=1)  # combine dataframes into one
+                    open_orders = open_orders.loc[:, ~open_orders.columns.duplicated()].copy()  # remove duplicate columns to prevent errors
+                    for i in open_orders.index:
+                        if open_orders.symbol[i] != symbol:
+                            open_orders = open_orders.drop([i])  # drop orders not related to the current symbol
+                    open_orders.reset_index(drop=True, inplace=True)  # reindex the dataframe after dropping rows
+                    # open_orders = open_orders.reindex(range(len(open_orders))) # reindex the dataframe after dropping rows
+                # print(open_orders)
+        
+                # modify open orders
+                desired_orders_df = util.df(desired_orders)
+                # if len(open_orders) > 0 and order_type == "close":
+                if len(open_orders) > 0 and len(desired_orders) > 0:
+                    for i in open_orders.index:
+                        for e in desired_orders_df.index:
+                            if open_orders.symbol[i] == desired_orders_df.symbol[e] and open_orders.orderType[i] == desired_orders_df.orderType[e] and open_orders.action[i] == desired_orders_df.action[e]:
+                                if open_orders.orderType[i] == "LMT":
+                                    # for trailing limit orders
+                                    # if current_qty > 0:
+                                    #     if open_orders.lmtPrice[i] > desired_orders_df.price[e]:  # for reversal
+                                    #         change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
+                                    # elif current_qty < 0:
+                                    #     if open_orders.lmtPrice[i] < desired_orders_df.price[e]:  # for reversal
+                                    #         change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
+                                    # for fixed limit orders
+                                    if open_orders.lmtPrice[i] != desired_orders_df.price[e]:
+                                        # print(open_orders.orderId[i], open_orders.lmtPrice[i], desired_orders_df.price[e])
+                                        # cprint("changing an order price")
+                                        change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
+                                        print(symbol + " modifying order")
+        
+                                else:
+                                    if open_orders.auxPrice[i] != desired_orders_df.price[e]:
+                                        # print(open_orders.orderId[i],open_orders.auxPrice[i],desired_orders_df.price[e])
+                                        # cprint("changing an order price")
+                                        change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
+                                        print(symbol + " modifying order")
+                # i += 1
+                # if i == 10:  # iterate over the top 10 spread %
+                #     break
+                continue
+                # send orders to open
+                if tradeable and order_type == "open" and contract not in [i.contract for i in open_trades]:  # don't open more trades if a trade is waiting to be executed
+                    desired_orders = util.df(desired_orders)
+                    place_single_order(desired_orders, contract, order_type)
+                    print(symbol + " placing order")
+        
+                # send orders to close
+                if order_type == "close" and contract not in [i.contract for i in open_trades]:
+                    desired_orders = util.df(desired_orders)
+                    place_single_order(desired_orders, contract, order_type)
+                
+                #####------ check if profit and close
+        
+                #####------ cancel unwanted orders
+        
+                # if x.minute % time_frame == 0 and x.minute > last_check_minute:
+                #     df.loc[index].last_check = x.minute
+                #     df.loc[index].vwap_1 = vwap  # store vwap at time_frame in case we want to reference it later
+        
+                i += 1
+                if i == 10:  # iterate over the top 10 spread %
+                    break
+                """
+            profit_sum = round(df['pnl'].sum() + pnl[0].realizedPnL, 2)
+            print("profit " + str(profit_sum))
+            # if profit_sum > 50:
+            #     close_position(1)
+            #     print("closing all for profit")
+            #     daily_trade_count = 100
+            #     # quit()
+            # if profit_sum < -50:
+            #     close_position(1)
+            #     print("closing all for a loss")
+            #     daily_trade_count = 100
+            # quit()
+            # if profit > 300:
+            #     path = "json/" + "profit" + str(profit_sum) + ".json"
+            #     with open(path, 'w') as file_object:
+            #         string = ib.reqPnL(account)
+            #         json.dump(string, file_object)
+            if x.hour == 14 and x.minute >= 55:
+                close_position(1)  # closes all positions
+                print("closed all positions at 2:55")
+                ib.disconnect()
+                quit(0)
+            # print("loop : " + str(datetime.datetime.now() - x))
+            # ib.sleep(3)
+        except:
+            print("wait for more data, returning")
+            return
 
-        #####------ cancel unwanted orders
-
-        # if x.minute % time_frame == 0 and x.minute > last_check_minute:
-        #     df.loc[index].last_check = x.minute
-        #     df.loc[index].vwap_1 = vwap  # store vwap at time_frame in case we want to reference it later
-
-        i += 1
-        if i == 10:  # iterate over the top 10 spread %
-            break
-        """
-    profit_sum = round(df['pnl'].sum() + pnl[0].realizedPnL, 2)
-    print("profit " + str(profit_sum))
-    # if profit_sum > 50:
-    #     close_position(1)
-    #     print("closing all for profit")
-    #     daily_trade_count = 100
-    #     # quit()
-    # if profit_sum < -50:
-    #     close_position(1)
-    #     print("closing all for a loss")
-    #     daily_trade_count = 100
-    # quit()
-    # if profit > 300:
-    #     path = "json/" + "profit" + str(profit_sum) + ".json"
-    #     with open(path, 'w') as file_object:
-    #         string = ib.reqPnL(account)
-    #         json.dump(string, file_object)
-    if x.hour == 14 and x.minute >= 55:
-        close_position(1)  # closes all positions
-        print("closed all positions at 2:55")
-        ib.disconnect()
-        quit(0)
-    ib.sleep(1)
 
 # Run infinitely
+ib.barUpdateEvent += trade_loop
 ib.run()
