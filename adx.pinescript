@@ -20,8 +20,12 @@ plot(sig, color=color.red, title="ADX", style=plot.style_stepline)
 [plus, minus] = dirmov(dilen)
 // plot(plus, color=color.purple)
 // plot(minus)
+bump_half = sig-.5 > sig[1]
+plotshape(bump_half, style=shape.circle, color=color.gray, location=location.top)
 bump = sig-1 > sig[1]
 plotshape(bump, style=shape.circle, location=location.top)
+bump2 = sig-1.5 > sig[1]
+plotshape(bump2, style=shape.circle, color=color.black, size=size.tiny, location=location.top)
 up = plus-minus > 0 and bump
 dn = plus-minus < 0 and bump
 plotchar(up, char="u", color=color.green, location=location.top)

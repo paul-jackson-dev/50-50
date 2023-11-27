@@ -245,228 +245,228 @@ def record_time(hour, minute, second, percentage):
         json.dump(list, file_object)
 
 
-def onBarUpdate(bars: BarDataList, has_new_bar: bool):
-    contract = bars.contract
-    symbol = bars.contract.symbol
-    data = bars
-    # cprint(symbol)
-    # print(util.df(ib.portfolio()))
-    for symbol_x in symbols_atr:
-        if symbol == symbol_x[0]:
-            atr = symbol_x[1]
+# def onBarUpdate(bars: BarDataList, has_new_bar: bool):
+#     contract = bars.contract
+#     symbol = bars.contract.symbol
+#     data = bars
+#     # cprint(symbol)
+#     # print(util.df(ib.portfolio()))
+#     for symbol_x in symbols_atr:
+#         if symbol == symbol_x[0]:
+#             atr = symbol_x[1]
+#
+#     # atr = round(atr*2,2)
+#
+#     qty = int(round(risk / atr, 0))
+#
+#     '''
+#     market_order = MarketOrder('BUY', qty)
+#     trade = ib.placeOrder(contract, market_order)
+#     ib.disconnect()
+#     quit(0)
+#     '''
+#     # if has_new_bar == True:
+#     df = util.df(data)
+#     # print(df)
+#     # sma = df.close.tail(50).mean()
+#     # std_dev = df.close.tail(50).std() * 3
+#     close = df.close.iloc[-1]
+#     high = df.high.iloc[-1]
+#     low = df.low.iloc[-1]
+#     high_last_bar = 0  # blocks orders from sending until we're ready
+#     low_last_bar = 99999999999999  # blocks orders from sending until we're ready
+#     if len(df) > 1:  # the loop is spinning, but we're still waiting for data to arrive
+#         high_last_bar = df.high.iloc[-2]
+#         low_last_bar = df.low.iloc[-2]
+#     open = df.open.iloc[-1]
+#     pos = util.df(ib.positions())
+#     # print(open_orders.to_string())
+#     # print(high_last_bar)
+#     # print(pos)
+#
+#     # Lets calculate PNL for our algo positions and exclude long term investments
+#     pnl_acc_unrealized = round(getattr(pnl_account, 'unrealizedPnL'), 2)
+#     pnl_acc_realized = round(getattr(pnl_account, 'realizedPnL'), 2)
+#     pnl_spy_unrealized = round(getattr(pnl_SPY, 'unrealizedPnL'), 2)
+#     pnl_spy_realized = round(getattr(pnl_SPY, 'realizedPnL'), 2)
+#     # pnl = round((pnl_acc_unrealized+pnl_acc_realized) - (pnl_spy_unrealized+pnl_spy_realized),2)
+#     # pnl = round((pnl_acc_unrealized + pnl_acc_realized) - pnl_spy_unrealized, 2)
+#
+#     pnl_acc_pnl = 0
+#     pnl_spy_pnl = 0
+#     if pd.isna(pnl_acc_unrealized) != True:  # check to make sure not nan
+#         pnl_acc_pnl += pnl_acc_unrealized
+#     if pd.isna(pnl_acc_realized) != True:
+#         pnl_acc_pnl += pnl_acc_realized
+#     if pd.isna(pnl_spy_unrealized) != True:
+#         pnl_spy_pnl += pnl_spy_unrealized
+#     pnl = round(pnl_acc_pnl - pnl_spy_pnl, 2)
+#
+#     if symbol == super_symbol:  # limit printing pnl
+#         print(pnl)
+#
+#     # Lets get open orders and access them as a dataclass instead of an object
+#     open_orders = ib.openTrades()
+#     # print(open_orders)
+#     orders = [ord.order for ord in open_orders]
+#     orders = util.df(orders)
+#     contracts = [con.contract for con in open_orders]
+#     contracts = util.df(contracts)
+#     orders_status = [stat.orderStatus for stat in open_orders]
+#     orders_status = util.df(orders_status)
+#     trailingPercent = 0
+#
+#     if len(open_orders) > 0:
+#         open_orders = pd.concat([orders, contracts, orders_status], axis=1)  # combine dataframes into one
+#         open_orders = open_orders.loc[:, ~open_orders.columns.duplicated()].copy()  # remove duplicate columns to prevent errors
+#         for i in open_orders.index:
+#             if open_orders.symbol[i] != symbol:
+#                 open_orders = open_orders.drop([i])  # drop orders not related to the current symbol
+#         # print(open_orders)
+#         open_orders.reset_index(drop=True, inplace=True)  # reindex the dataframe after dropping rows
+#         # open_orders = open_orders.reindex(range(len(open_orders))) # reindex the dataframe after dropping rows
+#     # print(open_orders)
+#
+#     if pnl >= 99999:  # changed # check if we should close for a profit
+#         if symbol == super_symbol:
+#             close_all = close_position(pos, symbol, contract, open_orders)
+#
+#     x = datetime.datetime.now()
+#     if x.hour == 14 and x.minute >= 55 and symbol == super_symbol:  # close remaining orders at the end of the day // use local time
+#         close_all = close_position(pos, symbol, contract, open_orders)
+#
+#     desired_orders = []
+#     order_type = "none"
+#     # Check if we are in a trade
+#     if contract not in [i.contract for i in ib.positions()]:
+#         # print(contract)
+#         # We are not in a trade - Look for a signal
+#         # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP','price': round(low + atr/2,2), 'totalQuantity': qty, 'action': 'BUY'}) #round(low + atr/2,2)
+#         # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(high - atr/2,2), 'totalQuantity': qty, 'action': 'SELL'})
+#         # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(high_last_bar, 2),'totalQuantity': qty, 'action': 'BUY'}) #follow through  # round(low + atr/2,2)
+#         # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(low_last_bar, 2),'totalQuantity': qty, 'action': 'SELL'}) #follow through
+#         desired_orders.append(
+#             {'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(high_last_bar, 2),
+#              'totalQuantity': qty, 'action': 'SELL'})  # reversal
+#         desired_orders.append(
+#             {'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(low_last_bar, 2),
+#              'totalQuantity': qty, 'action': 'BUY'})  # reversal
+#         order_type = "open"
+#         # print(desired_orders)
+#         ''' we don't need to modify since we are trying for the opening range break
+#         # Check if we need to modify orders
+#         desired_orders_df = util.df(desired_orders)
+#         if len(open_orders)>0:
+#             for i in open_orders.index:
+#                 for e in desired_orders_df.index:
+#                     if open_orders.symbol[i] == desired_orders_df.symbol[e] and open_orders.orderType[i] == desired_orders_df.orderType[e] and open_orders.action[i] == desired_orders_df.action[e]:
+#                         if open_orders.auxPrice[i] != desired_orders_df.price[e]:
+#                             #print(open_orders.orderId[i],open_orders.auxPrice[i],desired_orders_df.price[e])
+#                             #cprint("changing an order price")
+#                             change_order(open_orders.orderId[i],desired_orders_df.price[e],contract)
+#         '''
+#
+#     elif contract in [i.contract for i in ib.positions()]:
+#         # We are in a trade
+#         idx = pos.loc[pos['contract'] == contract].index[0]  # locate index of the contract
+#         current_qty = pos.position[idx]
+#         avgCost = round(pos.avgCost[idx], 2)
+#         trailingPercent = ((atr / 2) / close) * 100
+#         if current_qty > 0:
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(high - atr / 2, 2),'totalQuantity': abs(current_qty)*1, 'action': 'SELL'})
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(low + atr, 2),'totalQuantity': abs(current_qty), 'action': 'SELL'}) #round(low + atr, 2)
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost - (atr/2), 2),'totalQuantity': abs(current_qty)*1, 'action': 'SELL'}) #follow through
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(avgCost + (atr), 2),'totalQuantity': abs(current_qty), 'action': 'SELL'}) #follow through
+#             desired_orders.append(
+#                 {'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost - (atr * 3), 2),
+#                  'totalQuantity': abs(current_qty) * 1, 'action': 'SELL'})  # reversal
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(avgCost + (atr/2), 2),'totalQuantity': abs(current_qty), 'action': 'SELL'}) #reversal
+#             desired_orders.append(
+#                 {'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(low + (atr / 2), 2),
+#                  'totalQuantity': abs(current_qty), 'action': 'SELL'})  # reversal with trailing limit order
+#
+#         elif current_qty < 0:
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(low + atr / 2, 2),'totalQuantity': abs(current_qty)*1, 'action': 'BUY'})
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(high - atr, 2),'totalQuantity': abs(current_qty), 'action': 'BUY'})
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost + (atr/2), 2),'totalQuantity': abs(current_qty)*1, 'action': 'BUY'}) #follow through
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(avgCost - (atr), 2),'totalQuantity': abs(current_qty), 'action': 'BUY'}) #follow through
+#             desired_orders.append(
+#                 {'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost + (atr * 3), 2),
+#                  'totalQuantity': abs(current_qty) * 1, 'action': 'BUY'})  # reversal
+#             # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(avgCost - (atr/2), 2),'totalQuantity': abs(current_qty), 'action': 'BUY'}) #reversal
+#             desired_orders.append(
+#                 {'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(high - (atr / 2), 2),
+#                  'totalQuantity': abs(current_qty), 'action': 'BUY'})  # reversal with trailing limit order
+#         order_type = "close"
+#
+#         # Check if we need to modify orders
+#         desired_orders_df = util.df(desired_orders)
+#         # print(open_orders)
+#         if len(open_orders) > 0 and order_type == "close":
+#             for i in open_orders.index:
+#                 for e in desired_orders_df.index:
+#                     if open_orders.symbol[i] == desired_orders_df.symbol[e] and open_orders.orderType[i] == \
+#                             desired_orders_df.orderType[e] and open_orders.action[i] == desired_orders_df.action[e]:
+#                         if open_orders.orderType[i] == "LMT":
+#                             # for trailing limit orders
+#                             if current_qty > 0:
+#                                 if open_orders.lmtPrice[i] > desired_orders_df.price[e]:  # for reversal
+#                                     change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
+#                             elif current_qty < 0:
+#                                 if open_orders.lmtPrice[i] < desired_orders_df.price[e]:  # for reversal
+#                                     change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
+#                             ''' # for fixed limit orders
+#                             if open_orders.lmtPrice[i] != desired_orders_df.price[e]:
+#                                 #print(open_orders.orderId[i], open_orders.lmtPrice[i], desired_orders_df.price[e])
+#                                 #cprint("changing an order price")
+#                                 change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
+#                             '''
+#                         else:
+#                             if open_orders.auxPrice[i] != desired_orders_df.price[e]:
+#                                 # print(open_orders.orderId[i],open_orders.auxPrice[i],desired_orders_df.price[e])
+#                                 # cprint("changing an order price")
+#                                 change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
+#
+#     first_trade = First_trade(symbol)  # returns boolean
+#
+#     # wait for at least two records in the dataframe to prevent an indexing error. replace hour so last_bar_time prevents trading
+#     if len(df) > 1:
+#         last_bar_time = df.date.iloc[-2]  # get the time of the last bar in data
+#     else:
+#         last_bar_time = df.date.iloc[-1]  # get the time of the last bar in data
+#         last_bar_time = last_bar_time.replace(hour=7)
+#     # print(df)
+#     # send new orders to open. last_bar_time == 30 if you want to select the first bar of the day
+#     if last_bar_time.hour == 9 and last_bar_time.minute == 30 and first_trade == False and len(
+#             desired_orders) > 0 and len(open_orders) == 0 and order_type == "open":  # use exchange time zone
+#         if close > low_last_bar and close < high_last_bar:
+#             desired_orders = util.df(desired_orders)
+#             # cprint("sending orders")
+#             place_orders(desired_orders, contract, order_type, bars, trailingPercent)
+#             set_first_trade(symbol)  # change the first trade boolean
+#
+#     # send new orders to close
+#     if len(desired_orders) > 0 and len(open_orders) == 0 and order_type == "close":
+#         desired_orders = util.df(desired_orders)
+#         # cprint("sending orders")
+#         place_orders(desired_orders, contract, order_type, bars, trailingPercent)
+#
+#     # record if a stock is up or down and look for patterns
+#     direction = "0"
+#     if close > open:
+#         direction = "1"
+#     elif close < open:
+#         direction = "-1"
+#     record_direction(symbol, direction)
+#     if symbol == super_symbol:
+#         # percentage = calculate_direction(symbols) # returns percentage
+#         percentage = calculate_direction(
+#             symbols_direction)  # returns percentage // only uses symbols with a low enough spread
+#         print(str(percentage * 100) + "% " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
+#         if abs(percentage) == 1:
+#             record_time(x.hour, x.minute, x.second, percentage)
 
-    # atr = round(atr*2,2)
-
-    qty = int(round(risk / atr, 0))
-
-    '''
-    market_order = MarketOrder('BUY', qty)
-    trade = ib.placeOrder(contract, market_order)
-    ib.disconnect()
-    quit(0)
-    '''
-    # if has_new_bar == True:
-    df = util.df(data)
-    # print(df)
-    # sma = df.close.tail(50).mean()
-    # std_dev = df.close.tail(50).std() * 3
-    close = df.close.iloc[-1]
-    high = df.high.iloc[-1]
-    low = df.low.iloc[-1]
-    high_last_bar = 0  # blocks orders from sending until we're ready
-    low_last_bar = 99999999999999  # blocks orders from sending until we're ready
-    if len(df) > 1:  # the loop is spinning, but we're still waiting for data to arrive
-        high_last_bar = df.high.iloc[-2]
-        low_last_bar = df.low.iloc[-2]
-    open = df.open.iloc[-1]
-    pos = util.df(ib.positions())
-    # print(open_orders.to_string())
-    # print(high_last_bar)
-    # print(pos)
-
-    # Lets calculate PNL for our algo positions and exclude long term investments
-    pnl_acc_unrealized = round(getattr(pnl_account, 'unrealizedPnL'), 2)
-    pnl_acc_realized = round(getattr(pnl_account, 'realizedPnL'), 2)
-    pnl_spy_unrealized = round(getattr(pnl_SPY, 'unrealizedPnL'), 2)
-    pnl_spy_realized = round(getattr(pnl_SPY, 'realizedPnL'), 2)
-    # pnl = round((pnl_acc_unrealized+pnl_acc_realized) - (pnl_spy_unrealized+pnl_spy_realized),2)
-    # pnl = round((pnl_acc_unrealized + pnl_acc_realized) - pnl_spy_unrealized, 2)
-
-    pnl_acc_pnl = 0
-    pnl_spy_pnl = 0
-    if pd.isna(pnl_acc_unrealized) != True:  # check to make sure not nan
-        pnl_acc_pnl += pnl_acc_unrealized
-    if pd.isna(pnl_acc_realized) != True:
-        pnl_acc_pnl += pnl_acc_realized
-    if pd.isna(pnl_spy_unrealized) != True:
-        pnl_spy_pnl += pnl_spy_unrealized
-    pnl = round(pnl_acc_pnl - pnl_spy_pnl, 2)
-
-    if symbol == super_symbol:  # limit printing pnl
-        print(pnl)
-
-    # Lets get open orders and access them as a dataclass instead of an object
-    open_orders = ib.openTrades()
-    # print(open_orders)
-    orders = [ord.order for ord in open_orders]
-    orders = util.df(orders)
-    contracts = [con.contract for con in open_orders]
-    contracts = util.df(contracts)
-    orders_status = [stat.orderStatus for stat in open_orders]
-    orders_status = util.df(orders_status)
-    trailingPercent = 0
-
-    if len(open_orders) > 0:
-        open_orders = pd.concat([orders, contracts, orders_status], axis=1)  # combine dataframes into one
-        open_orders = open_orders.loc[:, ~open_orders.columns.duplicated()].copy()  # remove duplicate columns to prevent errors
-        for i in open_orders.index:
-            if open_orders.symbol[i] != symbol:
-                open_orders = open_orders.drop([i])  # drop orders not related to the current symbol
-        # print(open_orders)
-        open_orders.reset_index(drop=True, inplace=True)  # reindex the dataframe after dropping rows
-        # open_orders = open_orders.reindex(range(len(open_orders))) # reindex the dataframe after dropping rows
-    # print(open_orders)
-
-    if pnl >= 99999:  # changed # check if we should close for a profit
-        if symbol == super_symbol:
-            close_all = close_position(pos, symbol, contract, open_orders)
-
-    x = datetime.datetime.now()
-    if x.hour == 14 and x.minute >= 55 and symbol == super_symbol:  # close remaining orders at the end of the day // use local time
-        close_all = close_position(pos, symbol, contract, open_orders)
-
-    desired_orders = []
-    order_type = "none"
-    # Check if we are in a trade
-    if contract not in [i.contract for i in ib.positions()]:
-        # print(contract)
-        # We are not in a trade - Look for a signal
-        # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP','price': round(low + atr/2,2), 'totalQuantity': qty, 'action': 'BUY'}) #round(low + atr/2,2)
-        # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(high - atr/2,2), 'totalQuantity': qty, 'action': 'SELL'})
-        # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(high_last_bar, 2),'totalQuantity': qty, 'action': 'BUY'}) #follow through  # round(low + atr/2,2)
-        # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(low_last_bar, 2),'totalQuantity': qty, 'action': 'SELL'}) #follow through
-        desired_orders.append(
-            {'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(high_last_bar, 2),
-             'totalQuantity': qty, 'action': 'SELL'})  # reversal
-        desired_orders.append(
-            {'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(low_last_bar, 2),
-             'totalQuantity': qty, 'action': 'BUY'})  # reversal
-        order_type = "open"
-        # print(desired_orders)
-        ''' we don't need to modify since we are trying for the opening range break 
-        # Check if we need to modify orders
-        desired_orders_df = util.df(desired_orders)
-        if len(open_orders)>0:
-            for i in open_orders.index:
-                for e in desired_orders_df.index:
-                    if open_orders.symbol[i] == desired_orders_df.symbol[e] and open_orders.orderType[i] == desired_orders_df.orderType[e] and open_orders.action[i] == desired_orders_df.action[e]:
-                        if open_orders.auxPrice[i] != desired_orders_df.price[e]:
-                            #print(open_orders.orderId[i],open_orders.auxPrice[i],desired_orders_df.price[e])
-                            #cprint("changing an order price")
-                            change_order(open_orders.orderId[i],desired_orders_df.price[e],contract)
-        '''
-
-    elif contract in [i.contract for i in ib.positions()]:
-        # We are in a trade
-        idx = pos.loc[pos['contract'] == contract].index[0]  # locate index of the contract
-        current_qty = pos.position[idx]
-        avgCost = round(pos.avgCost[idx], 2)
-        trailingPercent = ((atr / 2) / close) * 100
-        if current_qty > 0:
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(high - atr / 2, 2),'totalQuantity': abs(current_qty)*1, 'action': 'SELL'})
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(low + atr, 2),'totalQuantity': abs(current_qty), 'action': 'SELL'}) #round(low + atr, 2)
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost - (atr/2), 2),'totalQuantity': abs(current_qty)*1, 'action': 'SELL'}) #follow through
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(avgCost + (atr), 2),'totalQuantity': abs(current_qty), 'action': 'SELL'}) #follow through
-            desired_orders.append(
-                {'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost - (atr * 3), 2),
-                 'totalQuantity': abs(current_qty) * 1, 'action': 'SELL'})  # reversal
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(avgCost + (atr/2), 2),'totalQuantity': abs(current_qty), 'action': 'SELL'}) #reversal
-            desired_orders.append(
-                {'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(low + (atr / 2), 2),
-                 'totalQuantity': abs(current_qty), 'action': 'SELL'})  # reversal with trailing limit order
-
-        elif current_qty < 0:
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(low + atr / 2, 2),'totalQuantity': abs(current_qty)*1, 'action': 'BUY'})
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(high - atr, 2),'totalQuantity': abs(current_qty), 'action': 'BUY'})
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost + (atr/2), 2),'totalQuantity': abs(current_qty)*1, 'action': 'BUY'}) #follow through
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(avgCost - (atr), 2),'totalQuantity': abs(current_qty), 'action': 'BUY'}) #follow through
-            desired_orders.append(
-                {'contract': contract, 'symbol': symbol, 'orderType': 'STP', 'price': round(avgCost + (atr * 3), 2),
-                 'totalQuantity': abs(current_qty) * 1, 'action': 'BUY'})  # reversal
-            # desired_orders.append({'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(avgCost - (atr/2), 2),'totalQuantity': abs(current_qty), 'action': 'BUY'}) #reversal
-            desired_orders.append(
-                {'contract': contract, 'symbol': symbol, 'orderType': 'LMT', 'price': round(high - (atr / 2), 2),
-                 'totalQuantity': abs(current_qty), 'action': 'BUY'})  # reversal with trailing limit order
-        order_type = "close"
-
-        # Check if we need to modify orders
-        desired_orders_df = util.df(desired_orders)
-        # print(open_orders)
-        if len(open_orders) > 0 and order_type == "close":
-            for i in open_orders.index:
-                for e in desired_orders_df.index:
-                    if open_orders.symbol[i] == desired_orders_df.symbol[e] and open_orders.orderType[i] == \
-                            desired_orders_df.orderType[e] and open_orders.action[i] == desired_orders_df.action[e]:
-                        if open_orders.orderType[i] == "LMT":
-                            # for trailing limit orders
-                            if current_qty > 0:
-                                if open_orders.lmtPrice[i] > desired_orders_df.price[e]:  # for reversal
-                                    change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
-                            elif current_qty < 0:
-                                if open_orders.lmtPrice[i] < desired_orders_df.price[e]:  # for reversal
-                                    change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
-                            ''' # for fixed limit orders
-                            if open_orders.lmtPrice[i] != desired_orders_df.price[e]:
-                                #print(open_orders.orderId[i], open_orders.lmtPrice[i], desired_orders_df.price[e])
-                                #cprint("changing an order price")
-                                change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
-                            '''
-                        else:
-                            if open_orders.auxPrice[i] != desired_orders_df.price[e]:
-                                # print(open_orders.orderId[i],open_orders.auxPrice[i],desired_orders_df.price[e])
-                                # cprint("changing an order price")
-                                change_order(open_orders.orderId[i], desired_orders_df.price[e], contract)
-
-    first_trade = First_trade(symbol)  # returns boolean
-
-    # wait for at least two records in the dataframe to prevent an indexing error. replace hour so last_bar_time prevents trading
-    if len(df) > 1:
-        last_bar_time = df.date.iloc[-2]  # get the time of the last bar in data
-    else:
-        last_bar_time = df.date.iloc[-1]  # get the time of the last bar in data
-        last_bar_time = last_bar_time.replace(hour=7)
-    # print(df)
-    # send new orders to open. last_bar_time == 30 if you want to select the first bar of the day
-    if last_bar_time.hour == 9 and last_bar_time.minute == 30 and first_trade == False and len(
-            desired_orders) > 0 and len(open_orders) == 0 and order_type == "open":  # use exchange time zone
-        if close > low_last_bar and close < high_last_bar:
-            desired_orders = util.df(desired_orders)
-            # cprint("sending orders")
-            place_orders(desired_orders, contract, order_type, bars, trailingPercent)
-            set_first_trade(symbol)  # change the first trade boolean
-
-    # send new orders to close
-    if len(desired_orders) > 0 and len(open_orders) == 0 and order_type == "close":
-        desired_orders = util.df(desired_orders)
-        # cprint("sending orders")
-        place_orders(desired_orders, contract, order_type, bars, trailingPercent)
-
-    # record if a stock is up or down and look for patterns
-    direction = "0"
-    if close > open:
-        direction = "1"
-    elif close < open:
-        direction = "-1"
-    record_direction(symbol, direction)
-    if symbol == super_symbol:
-        # percentage = calculate_direction(symbols) # returns percentage
-        percentage = calculate_direction(
-            symbols_direction)  # returns percentage // only uses symbols with a low enough spread
-        print(str(percentage * 100) + "% " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
-        if abs(percentage) == 1:
-            record_time(x.hour, x.minute, x.second, percentage)
-
-    # ib.sleep(2)
+# ib.sleep(2)
 
 
 # Create contracts and subscribe to bars
@@ -484,7 +484,7 @@ symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX
 # symbols = ['TSLA']
 time_frame = 2
 
-# symbols = ['TSLA']
+symbols = ['TSLA']
 
 account = 'DU4792662'  # paper money
 # account = 'U7704220'  # real money
@@ -590,6 +590,13 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
 
         adx_df = adx_df.iloc[::-1]  # reverse the dataframe to iterate over the most recent rows.
         adx_df = adx_df.reset_index(drop=True)  # reset index to 0
+
+        # save adx df so we can manipulate it for testing
+        # outside_command_path = "json/" + "adx_test.json"
+        # with open(outside_command_path, 'w') as file_object:  # open the file in write mode
+        #     string = adx_df.to_json()
+        #     json.dump(string, file_object)
+
         # print(adx_df.head(20))
         adx_under_15_count = 0
         adx_bump = None
@@ -821,6 +828,29 @@ def onPendingTickers(tickers):
     # print("--------------------------")
 
 
+########### delete after testing is done ###################
+adx_test_path = "json/" + "adx_test.json"
+with open(adx_test_path, 'r') as openfile:
+    string = json.load(openfile)
+    adx_df = pd.read_json(string)
+    print(adx_df.head(15))
+    index_of_bottom = None  # find the most recent bottom if it exists
+    for index, row in adx_df.iloc[:10].iterrows():  # look backwards to find bottom.
+        if adx_df.iloc[index].ADX_14 < adx_df.iloc[index + 1].ADX_14:
+            print(index)
+            print(adx_df.iloc[index].ADX_14)
+            index_of_bottom = index
+            break
+    if index_of_bottom:  # bottom is recent
+        if adx_df.iloc[index_of_bottom].ADX_14 < 25:  # bottom is pretty low
+            if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1:  # last adx change was pretty strong
+                if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= .5 and adx_df.iloc[2].ADX_14 - adx_df.iloc[3].ADX_14 >= .5:  # the two before that were building strength
+                    print("signal")
+
+    ib.disconnect()
+    quit(0)
+########### delete after testing is done ###################
+
 for contract in contracts:
     ib.reqMktData(contract, '233', False, False)
     print(contract.symbol + " connected")
@@ -927,9 +957,9 @@ for contract in contracts:
 # ib.sleep(10)
 # onBarUpdateNew(bars, True)
 #
-# market_order = MarketOrder('BUY', 10)
+market_order = MarketOrder('BUY', 10)
 # # stop_order = StopOrder('BUY', 10, 261.75)
-# trade = ib.placeOrder(contract, market_order)
+trade = ib.placeOrder(contract, market_order)
 # trade = ib.placeOrder(contract, stop_order)
 # ib.sleep(10)
 # open_trades = ib.openTrades()
@@ -1241,7 +1271,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             print(symbol + ": cancelling order")
 
                 # modify an opening orders price
-                if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
+                if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
                     for trade in open_trades:
                         if trade.contract.symbol == symbol:
                             if trade.order.action == "BUY":
@@ -1439,6 +1469,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             #     with open(path, 'w') as file_object:
             #         string = ib.reqPnL(account)
             #         json.dump(string, file_object)
+            print(x.hour, x.minute)
             if x.hour == 14 and x.minute >= 55:
                 close_position(1)  # closes all positions
                 print("closed all positions at 2:55")
