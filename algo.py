@@ -31,10 +31,20 @@ def place_oca_orders(contract, order1, order2):
     orders = [order1, order2]
     oca = str(random.randint(100000000, 99999999999))
     orders = ib.oneCancelsAll(orders, oca, 1)
+    print(orders)
+    # ib.sleep(0)
+    ib.placeOrder(contract, orders[0])
+    print("order 1 submitted")
     ib.sleep(0)
-    for order in orders:
-        ib.placeOrder(contract, order)
-        ib.sleep(0)
+    ib.placeOrder(contract, orders[0])
+    print("order 2 submitted")
+    # for order in orders:
+    #     print("here")
+    #     print(order)
+    #     submitted_order = ib.placeOrder(contract, order)
+    #     # ib.sleep(0)
+    #     print(submitted_order)
+
     # ib.placeOrder(contract, order2)
     # ib.sleep(0)
 
@@ -484,7 +494,7 @@ symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX
 # symbols = ['TSLA']
 time_frame = 2
 
-symbols = ['TSLA']
+# symbols = ['TSLA']
 
 account = 'DU4792662'  # paper money
 # account = 'U7704220'  # real money
@@ -573,9 +583,10 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
 
     # calculate ATR
     calc_bars = pd.DataFrame(bars)
+    # print(len(calc_bars))
     atr_df = pd.DataFrame(columns=['atr'])  # erase old stuff
-    atr_df.atr = ta.atr(high=calc_bars['high'].tail(550), low=calc_bars['low'].tail(550),
-                        close=calc_bars['close'].tail(550), length=14, mamode='SMA')
+    atr_df.atr = ta.atr(high=calc_bars['high'].tail(1501), low=calc_bars['low'].tail(1501),
+                        close=calc_bars['close'].tail(1501), length=750, mamode='SMA')
     atr = round(atr_df.iloc[-1].atr, 4)
     atr_1 = round(atr_df.iloc[-2].atr, 4)
     df.loc[symbol].atr = atr
@@ -598,44 +609,67 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         #     json.dump(string, file_object)
 
         # print(adx_df.head(20))
-        adx_under_15_count = 0
-        adx_bump = None
-        adx_direction = 0
-        index_count = 0
-        for index, row in adx_df.iloc[:6].iterrows():  # iterate over 7 rows, but shift to focus on 6
-            if ((xz.minute - (time_frame - 1)) % time_frame == 0 and xz.second > 50 and index < 6):  # check for signal late in the bar
-                adx_bump = True if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1 else False
-                adx_direction = adx_df.iloc[0].DMP_14 - adx_df.iloc[0].DMN_14
-                if row.ADX_14 <= 15:
-                    adx_under_15_count += 1
-            if (xz.minute % time_frame == 0):  # check for signal if it was missed in the last bar
-                adx_bump = True if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= 1 else False  # shift because we are in a new bar
-                adx_direction = adx_df.iloc[1].DMP_14 - adx_df.iloc[1].DMN_14
-                if row.ADX_14 <= 15 and index != 0:  # shift because we are in a new bar
-                    adx_under_15_count += 1
-        adx_dict = df.loc[symbol].adx_dict
 
-        duration_since_last_signal = (datetime.datetime.now() - adx_dict["last_signal_time"]).total_seconds()
-        if adx_under_15_count >= 5 and adx_bump == True and duration_since_last_signal >= 60 * (time_frame * 3):  # wait 3 time frames before issuing new signal
-            df.loc[symbol].adx_signal = "signal_buy" if adx_direction > 0 else "signal_sell"
-            # df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}
-            # ######### for pattern verification
-            # print(symbol)
-            # print(xz.hour, xz.minute, xz.second)
-            # print(adx_under_15_count)
-            # print(adx_bump)
-            # print(adx_direction)
-            # adx = round(adx_df.iloc[0].ADX_14, 2)
-            # print(adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14)
-            # print(adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14)
-            # print(adx)
-            # print(adx_df.head(10))
-            # print("playing sound")
-            # winsound.PlaySound('ding.wav', winsound.SND_FILENAME)
-            # ib.disconnect()
-            # quit(0)
-        else:
-            df.loc[symbol].adx_signal = "none"
+        ### adx signal ### find recent bottom, look for trend strength after within a number of bars
+        index_of_bottom = None  # find the most recent bottom if it exists
+        adx_direction = adx_df.iloc[0].DMP_14 - adx_df.iloc[0].DMN_14
+        for index, row in adx_df.iloc[:10].iterrows():  # look backwards to find bottom.
+            if adx_df.iloc[index].ADX_14 < adx_df.iloc[index + 1].ADX_14:
+                # print(index)
+                # print(adx_df.iloc[index].ADX_14)
+                index_of_bottom = index
+                break
+        signal_string = "none"
+        adx_dict = df.loc[symbol].adx_dict
+        if index_of_bottom:  # bottom is recent
+            if df.loc[symbol].in_trade != "none":  # we're in a trade, record the most recent bottom
+                adx_dict["last_adx_bottom"] = adx_df.iloc[index_of_bottom].ADX_14  # lots a decimals, an unwanted direct match is unlikely
+            if adx_df.iloc[index_of_bottom].ADX_14 < 25:  # bottom is pretty low
+                if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1:  # last adx change was pretty strong
+                    if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= .5 and adx_df.iloc[2].ADX_14 - adx_df.iloc[3].ADX_14 >= .5:  # the two before that were building strength
+                        # print(adx_dict["last_adx_bottom"], adx_df.iloc[index_of_bottom].ADX_14)
+                        if adx_dict["last_adx_bottom"] != adx_df.iloc[index_of_bottom].ADX_14:  # continues to update bottoms while in a trade
+                            signal_string = "signal_buy" if adx_direction > 0 else "signal_sell"
+        df.loc[symbol].adx_signal = signal_string  # set buy sell none signal
+
+        # adx_under_15_count = 0
+        # adx_bump = None
+        # adx_direction = 0
+        # index_count = 0
+        # for index, row in adx_df.iloc[:6].iterrows():  # iterate over 7 rows, but shift to focus on 6
+        #     if ((xz.minute - (time_frame - 1)) % time_frame == 0 and xz.second > 50 and index < 6):  # check for signal late in the bar
+        #         adx_bump = True if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1 else False
+        #         adx_direction = adx_df.iloc[0].DMP_14 - adx_df.iloc[0].DMN_14
+        #         if row.ADX_14 <= 15:
+        #             adx_under_15_count += 1
+        #     if (xz.minute % time_frame == 0):  # check for signal if it was missed in the last bar
+        #         adx_bump = True if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= 1 else False  # shift because we are in a new bar
+        #         adx_direction = adx_df.iloc[1].DMP_14 - adx_df.iloc[1].DMN_14
+        #         if row.ADX_14 <= 15 and index != 0:  # shift because we are in a new bar
+        #             adx_under_15_count += 1
+        # adx_dict = df.loc[symbol].adx_dict
+        #
+        # duration_since_last_signal = (datetime.datetime.now() - adx_dict["last_signal_time"]).total_seconds()
+        # if adx_under_15_count >= 5 and adx_bump == True and duration_since_last_signal >= 60 * (time_frame * 3):  # wait 3 time frames before issuing new signal
+        #     df.loc[symbol].adx_signal = "signal_buy" if adx_direction > 0 else "signal_sell"
+        #     # df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}
+        #     # ######### for pattern verification
+        #     # print(symbol)
+        #     # print(xz.hour, xz.minute, xz.second)
+        #     # print(adx_under_15_count)
+        #     # print(adx_bump)
+        #     # print(adx_direction)
+        #     # adx = round(adx_df.iloc[0].ADX_14, 2)
+        #     # print(adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14)
+        #     # print(adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14)
+        #     # print(adx)
+        #     # print(adx_df.head(10))
+        #     # print("playing sound")
+        #     # winsound.PlaySound('ding.wav', winsound.SND_FILENAME)
+        #     # ib.disconnect()
+        #     # quit(0)
+        # else:
+        #     df.loc[symbol].adx_signal = "none"
 
         adx = round(adx_df.iloc[0].ADX_14, 2)
         # if adx <= 15:
@@ -829,26 +863,26 @@ def onPendingTickers(tickers):
 
 
 ########### delete after testing is done ###################
-adx_test_path = "json/" + "adx_test.json"
-with open(adx_test_path, 'r') as openfile:
-    string = json.load(openfile)
-    adx_df = pd.read_json(string)
-    print(adx_df.head(15))
-    index_of_bottom = None  # find the most recent bottom if it exists
-    for index, row in adx_df.iloc[:10].iterrows():  # look backwards to find bottom.
-        if adx_df.iloc[index].ADX_14 < adx_df.iloc[index + 1].ADX_14:
-            print(index)
-            print(adx_df.iloc[index].ADX_14)
-            index_of_bottom = index
-            break
-    if index_of_bottom:  # bottom is recent
-        if adx_df.iloc[index_of_bottom].ADX_14 < 25:  # bottom is pretty low
-            if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1:  # last adx change was pretty strong
-                if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= .5 and adx_df.iloc[2].ADX_14 - adx_df.iloc[3].ADX_14 >= .5:  # the two before that were building strength
-                    print("signal")
-
-    ib.disconnect()
-    quit(0)
+# adx_test_path = "json/" + "adx_test.json"
+# with open(adx_test_path, 'r') as openfile:
+#     string = json.load(openfile)
+#     adx_df = pd.read_json(string)
+#     print(adx_df.head(15))
+#     index_of_bottom = None  # find the most recent bottom if it exists
+#     for index, row in adx_df.iloc[:10].iterrows():  # look backwards to find bottom.
+#         if adx_df.iloc[index].ADX_14 < adx_df.iloc[index + 1].ADX_14:
+#             print(index)
+#             print(adx_df.iloc[index].ADX_14)
+#             index_of_bottom = index
+#             break
+#     if index_of_bottom:  # bottom is recent
+#         if adx_df.iloc[index_of_bottom].ADX_14 < 25:  # bottom is pretty low
+#             if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1:  # last adx change was pretty strong
+#                 if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= .5 and adx_df.iloc[2].ADX_14 - adx_df.iloc[3].ADX_14 >= .5:  # the two before that were building strength
+#                     print("signal")
+#
+#     ib.disconnect()
+#     quit(0)
 ########### delete after testing is done ###################
 
 for contract in contracts:
@@ -940,7 +974,7 @@ for contract in contracts:
     df.loc[contract.symbol].in_trade = "none"
     df.loc[contract.symbol].signal = "none"
     df.loc[contract.symbol].adx_signal = "none"
-    df.loc[contract.symbol].adx_dict = {"last_signal_time": datetime.datetime(2012, 3, 5, 23, 8, 15)}  # arbitrary date in the past
+    df.loc[contract.symbol].adx_dict = {"last_adx_bottom": 0, "last_signal_time": datetime.datetime(2012, 3, 5, 23, 8, 15)}  # arbitrary date in the past
     df.loc[contract.symbol].calculable = "no"
     # if contract.symbol == "MSFT":
     #     market_order = MarketOrder('SELL', 10)
@@ -957,9 +991,9 @@ for contract in contracts:
 # ib.sleep(10)
 # onBarUpdateNew(bars, True)
 #
-market_order = MarketOrder('BUY', 10)
+# market_order = MarketOrder('BUY', 10)
 # # stop_order = StopOrder('BUY', 10, 261.75)
-trade = ib.placeOrder(contract, market_order)
+# trade = ib.placeOrder(contract, market_order)
 # trade = ib.placeOrder(contract, stop_order)
 # ib.sleep(10)
 # open_trades = ib.openTrades()
@@ -1028,6 +1062,9 @@ daily_trade_count = 0
 global last_trade_loop_time
 last_trade_loop_time = datetime.datetime.now()
 
+global loop_count
+loop_count = 0
+
 
 def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event listener
     x = datetime.datetime.now()  # x.hour returns hour
@@ -1035,13 +1072,17 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
     last_loop_seconds = (x - last_trade_loop_time).total_seconds()
     if bars.contract.symbol == symbols[0] and last_loop_seconds >= 3:
         last_trade_loop_time = x
+        loop_flag = True
         try:
+            global loop_count
+            loop_count += 1
+            print(loop_count)
             global df
             df = df.sort_values(by=['spread %'])
             i = 0
             # print(df.head(10))
             print(df[['signal', 'atr_count', 'stairs', 'adx_signal', 'spread %', 'spread', 'vwap',
-                      'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'set_time_vwap', 'banned', 'calculable']].head(20))
+                      'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'in_trade', 'banned', 'calculable']].head(20))
             positions = ib.positions()  # get positions
             df_positions = util.df(positions)  # create dataframe with positions
             # print(df_positions)
@@ -1224,19 +1265,21 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 # open and manage positions based on 'signal'
                 # open a new order to manage
                 if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
-                    if tradeable and df.loc[symbol].adx_signal == "signal_buy":
-                        df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}  # keep track of last trade time so we don't over trade
-                        print(symbol, "Buying - Signal Up")
-                        market_order = MarketOrder("BUY", abs(qty))
-                        ib.placeOrder(contract, market_order)
-                        ib.sleep(0)
+                    df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
+                    if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
+                        if tradeable and df.loc[symbol].adx_signal == "signal_buy":
+                            df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
+                            print(symbol, "Buying - Signal Up")
+                            market_order = MarketOrder("BUY", abs(qty))
+                            ib.placeOrder(contract, market_order)
+                            ib.sleep(0)
 
-                    if tradeable and df.loc[symbol].adx_signal == "signal_sell":
-                        df.loc[symbol].adx_dict = {"last_signal_time": datetime.datetime.now()}  # keep track of last trade time so we don't over trade
-                        print(symbol, "Selling - Signal Down")
-                        market_order = MarketOrder("SELL", abs(qty))
-                        ib.placeOrder(contract, market_order)
-                        ib.sleep(0)
+                        if tradeable and df.loc[symbol].adx_signal == "signal_sell":
+                            df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
+                            print(symbol, "Selling - Signal Down")
+                            market_order = MarketOrder("SELL", abs(qty))
+                            ib.placeOrder(contract, market_order)
+                            ib.sleep(0)
 
                 # open and manage positions based on atr_count
                 # open a new order to manage
@@ -1294,13 +1337,14 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             if qty_close > 0:
                                 df.loc[symbol].in_trade = "up"
                                 action = "SELL"
-                                price1 = round(avg_cost + (atr * 1), 2)
-                                price2 = round(avg_cost - (atr * 1), 2)
+                                price1 = round(avg_cost + (atr * 3), 2)
+                                price2 = round(avg_cost - (atr * 1.25), 2)
                             if qty_close < 0:
                                 df.loc[symbol].in_trade = "dn"
                                 action = "BUY"
-                                price1 = round(avg_cost - (atr * 1), 2)
-                                price2 = round(avg_cost + (atr * 1), 2)
+                                price1 = round(avg_cost - (atr * 3), 2)
+                                price2 = round(avg_cost + (atr * 1.25), 2)
+                            print(symbol, "Opening Take Profit and Stop Loss")
                             order1 = LimitOrder(action, abs(qty_close), price1)
                             order2 = StopOrder(action, abs(qty_close), price2)
                             place_oca_orders(contract, order1, order2)
@@ -1469,7 +1513,6 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             #     with open(path, 'w') as file_object:
             #         string = ib.reqPnL(account)
             #         json.dump(string, file_object)
-            print(x.hour, x.minute)
             if x.hour == 14 and x.minute >= 55:
                 close_position(1)  # closes all positions
                 print("closed all positions at 2:55")
