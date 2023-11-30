@@ -8,6 +8,7 @@ import datetime
 import json
 import math
 from statistics import mean
+from statistics import median
 import winsound
 
 # pnl_profit = pnl_profit(pnl_profit=False) #pickle as an object
@@ -36,7 +37,7 @@ def place_oca_orders(contract, order1, order2):
     ib.placeOrder(contract, orders[0])
     print("order 1 submitted")
     ib.sleep(0)
-    ib.placeOrder(contract, orders[0])
+    ib.placeOrder(contract, orders[1])
     print("order 2 submitted")
     # for order in orders:
     #     print("here")
@@ -549,8 +550,10 @@ for c in contracts:
 
 # df = df.drop(["test"]).reset_index(drop=True)
 def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
-    global df
     xz = datetime.datetime.now()
+    if xz.second % 2 != 0:  # reduce cpu load and only calculate every 2 seconds
+        return
+    global df
     contract = bars.contract
     symbol = bars.contract.symbol
     data = bars
@@ -585,8 +588,8 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     calc_bars = pd.DataFrame(bars)
     # print(len(calc_bars))
     atr_df = pd.DataFrame(columns=['atr'])  # erase old stuff
-    atr_df.atr = ta.atr(high=calc_bars['high'].tail(1501), low=calc_bars['low'].tail(1501),
-                        close=calc_bars['close'].tail(1501), length=750, mamode='SMA')
+    atr_df.atr = ta.atr(high=calc_bars['high'].tail(100), low=calc_bars['low'].tail(100),
+                        close=calc_bars['close'].tail(100), length=14, mamode='SMA')
     atr = round(atr_df.iloc[-1].atr, 4)
     atr_1 = round(atr_df.iloc[-2].atr, 4)
     df.loc[symbol].atr = atr
@@ -630,6 +633,8 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
                         # print(adx_dict["last_adx_bottom"], adx_df.iloc[index_of_bottom].ADX_14)
                         if adx_dict["last_adx_bottom"] != adx_df.iloc[index_of_bottom].ADX_14:  # continues to update bottoms while in a trade
                             signal_string = "signal_buy" if adx_direction > 0 else "signal_sell"
+                            if df.loc[symbol].adx_signal == "none":
+                                winsound.PlaySound('ding.wav', winsound.SND_FILENAME)
         df.loc[symbol].adx_signal = signal_string  # set buy sell none signal
 
         # adx_under_15_count = 0
@@ -769,10 +774,10 @@ def onPendingTickers(tickers):
     for t in tickers:
         symbol = t.contract.symbol
         try:
-            spread = (t.ask - t.bid) / df.loc[symbol].atr
+            spread = (t.ask - t.bid) / df.loc[symbol].atr  # convert to precent of atr
             if not math.isnan(spread):
                 dict_spreads[symbol].insert(0, spread)  # add new spread at the top
-                if len(dict_spreads[symbol]) > 1000:  # keep the last 1,000 ticks to get an average later
+                if len(dict_spreads[symbol]) > 5000:  # keep the last 1,000 ticks to get an average later
                     del dict_spreads[symbol][-1]  # delete oldest spread
                 # if symbol == "TSLA":
                 # print(dict_spreads[symbol])
@@ -1063,20 +1068,21 @@ global last_trade_loop_time
 last_trade_loop_time = datetime.datetime.now()
 
 global loop_count
-loop_count = 0
+
+
+# loop_count = 0
 
 
 def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event listener
     x = datetime.datetime.now()  # x.hour returns hour
     global last_trade_loop_time
     last_loop_seconds = (x - last_trade_loop_time).total_seconds()
-    if bars.contract.symbol == symbols[0] and last_loop_seconds >= 3:
+    if bars.contract.symbol == symbols[0] and last_loop_seconds >= 4:
         last_trade_loop_time = x
-        loop_flag = True
         try:
-            global loop_count
-            loop_count += 1
-            print(loop_count)
+            #     global loop_count
+            #     loop_count += 1
+            #     print(loop_count)
             global df
             df = df.sort_values(by=['spread %'])
             i = 0
@@ -1205,7 +1211,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 calculable_count -= 1
 
                 try:
-                    df.loc[symbol]["spread %"] = mean(dict_spreads[symbol])
+                    df.loc[symbol]["spread %"] = mean(dict_spreads[symbol])  # spreads are saved as a %, spread/atr
                 except:
                     pass
 
@@ -1283,50 +1289,50 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
 
                 # open and manage positions based on atr_count
                 # open a new order to manage
-                if 1 == 0 and contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
-                    # control over trading a trend
-                    if df.loc[symbol].in_trade == "up" and atr_count > 0:  # set atr_count to 0 if we just participated in a trend
-                        df.loc[symbol].in_trade = "none"
-                        df.loc[symbol].atr_count = 0
-                        continue
-                    elif df.loc[symbol].in_trade == "dn" and atr_count < 0:
-                        df.loc[symbol].in_trade = "none"
-                        df.loc[symbol].atr_count = 0
-                        continue
-                    else:
-                        df.loc[symbol].in_trade = "none"
-
-                    if tradeable and len(df_positions.index) < max_position_count and abs(atr_count) >= atr_count_entry:  # limit positions to max_position_count
-                        if atr_count >= atr_count_entry:
-                            print("BUY", str(qty), str(round(bar_open + atr, 2)))
-                            place_stop_order("BUY", qty, round(bar_open + atr, 2))
-                            print(symbol + ": opening buy order")
-                        if atr_count <= -abs(atr_count_entry):
-                            print("SELL", str(qty), str(round(bar_open - atr, 2)))
-                            place_stop_order("SELL", qty, round(bar_open - atr, 2))
-                            print(symbol + ": opening sell order")
+                # if 1 == 0 and contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
+                #     # control over trading a trend
+                #     if df.loc[symbol].in_trade == "up" and atr_count > 0:  # set atr_count to 0 if we just participated in a trend
+                #         df.loc[symbol].in_trade = "none"
+                #         df.loc[symbol].atr_count = 0
+                #         continue
+                #     elif df.loc[symbol].in_trade == "dn" and atr_count < 0:
+                #         df.loc[symbol].in_trade = "none"
+                #         df.loc[symbol].atr_count = 0
+                #         continue
+                #     else:
+                #         df.loc[symbol].in_trade = "none"
+                #
+                #     if tradeable and len(df_positions.index) < max_position_count and abs(atr_count) >= atr_count_entry:  # limit positions to max_position_count
+                #         if atr_count >= atr_count_entry:
+                #             print("BUY", str(qty), str(round(bar_open + atr, 2)))
+                #             place_stop_order("BUY", qty, round(bar_open + atr, 2))
+                #             print(symbol + ": opening buy order")
+                #         if atr_count <= -abs(atr_count_entry):
+                #             print("SELL", str(qty), str(round(bar_open - atr, 2)))
+                #             place_stop_order("SELL", qty, round(bar_open - atr, 2))
+                #             print(symbol + ": opening sell order")
 
                 # cancel an order that is no longer relevant
-                if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and abs(atr_count) < atr_count_entry:
-                    for trade in open_trades:
-                        if trade.contract.symbol == symbol:
-                            cancel_single_order(trade.order)
-                            print(symbol + ": cancelling order")
+                # if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and abs(atr_count) < atr_count_entry:
+                #     for trade in open_trades:
+                #         if trade.contract.symbol == symbol:
+                #             cancel_single_order(trade.order)
+                #             print(symbol + ": cancelling order")
 
                 # modify an opening orders price
-                if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
-                    for trade in open_trades:
-                        if trade.contract.symbol == symbol:
-                            if trade.order.action == "BUY":
-                                if trade.order.auxPrice != round(bar_open + atr, 2):
-                                    trade.order.auxPrice = round(bar_open + atr, 2)
-                                    ib.placeOrder(contract, trade.order)
-                                    print(str(symbol) + " auxPrice changed to " + str(round(bar_open + atr, 3)))
-                            if trade.order.action == "SELL":
-                                if trade.order.auxPrice != round(bar_open - atr, 2):
-                                    trade.order.auxPrice = round(bar_open - atr, 2)
-                                    ib.placeOrder(contract, trade.order)
-                                    print(str(symbol) + " auxPrice changed to " + str(round(bar_open - atr, 3)))
+                # if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
+                #     for trade in open_trades:
+                #         if trade.contract.symbol == symbol:
+                #             if trade.order.action == "BUY":
+                #                 if trade.order.auxPrice != round(bar_open + atr, 2):
+                #                     trade.order.auxPrice = round(bar_open + atr, 2)
+                #                     ib.placeOrder(contract, trade.order)
+                #                     print(str(symbol) + " auxPrice changed to " + str(round(bar_open + atr, 3)))
+                #             if trade.order.action == "SELL":
+                #                 if trade.order.auxPrice != round(bar_open - atr, 2):
+                #                     trade.order.auxPrice = round(bar_open - atr, 2)
+                #                     ib.placeOrder(contract, trade.order)
+                #                     print(str(symbol) + " auxPrice changed to " + str(round(bar_open - atr, 3)))
 
                 # handle open positions and send closing orders
                 if contract in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
@@ -1345,6 +1351,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                                 price1 = round(avg_cost - (atr * 3), 2)
                                 price2 = round(avg_cost + (atr * 1.25), 2)
                             print(symbol, "Opening Take Profit and Stop Loss")
+                            print(avg_cost, action, price1, price2, )
                             order1 = LimitOrder(action, abs(qty_close), price1)
                             order2 = StopOrder(action, abs(qty_close), price2)
                             place_oca_orders(contract, order1, order2)
