@@ -1343,18 +1343,33 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             if qty_close > 0:
                                 df.loc[symbol].in_trade = "up"
                                 action = "SELL"
-                                price1 = round(avg_cost + (atr * 3), 2)
-                                price2 = round(avg_cost - (atr * 1.25), 2)
+                                price1 = round(avg_cost + (atr * 1), 2)  # take profit
+                                price2 = round(avg_cost - (atr * 1), 2)  # stop loss
                             if qty_close < 0:
                                 df.loc[symbol].in_trade = "dn"
                                 action = "BUY"
-                                price1 = round(avg_cost - (atr * 3), 2)
-                                price2 = round(avg_cost + (atr * 1.25), 2)
+                                price1 = round(avg_cost - (atr * 1), 2)  # take profit
+                                price2 = round(avg_cost + (atr * 1), 2)  # stop loss
                             print(symbol, "Opening Take Profit and Stop Loss")
                             print(avg_cost, action, price1, price2, )
                             order1 = LimitOrder(action, abs(qty_close), price1)
                             order2 = StopOrder(action, abs(qty_close), price2)
                             place_oca_orders(contract, order1, order2)
+
+                # modify stop loss price for closing order 
+                if contract in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
+                    for trade in open_trades:
+                        if trade.contract.symbol == symbol:
+                            if trade.order.orderType == "STP" and trade.order.action == "BUY":
+                                if trade.order.auxPrice != round(bar_open + atr, 2):
+                                    trade.order.auxPrice = round(bar_open + atr, 2)
+                                    ib.placeOrder(contract, trade.order)
+                                    print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open + atr, 2)))
+                            if trade.order.orderType == "STP" and trade.order.action == "SELL":
+                                if trade.order.auxPrice != round(bar_open - atr, 2):
+                                    trade.order.auxPrice = round(bar_open - atr, 2)
+                                    ib.placeOrder(contract, trade.order)
+                                    print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open - atr, 2)))
 
                 ##############################################################################################################
                 """
