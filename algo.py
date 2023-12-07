@@ -539,7 +539,8 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                   columns=['spread %', 'spread', 'vwap', 'mid_price', 'atr', 'set_time_vwap', 'vwap_1', 'vwap_2', 'vwap_3',
                            'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3', 'set_time_vwap_per',
-                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade', 'adx_signal', 'adx_dict', 'calculable'])
+                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade', 'adx_signal', 'adx_dict',
+                           'calculable', 'tradeable'])
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
@@ -625,16 +626,20 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         signal_string = "none"
         adx_dict = df.loc[symbol].adx_dict
         if index_of_bottom:  # bottom is recent
-            if df.loc[symbol].in_trade != "none":  # we're in a trade, record the most recent bottom
+            if df.loc[symbol].in_trade != "none" or df.loc[symbol].tradeable == "no":  # we're in a trade, record the most recent bottom or this symbol isn't tradeable and we want to prevent false signals if it becomes tradeable
                 adx_dict["last_adx_bottom"] = adx_df.iloc[index_of_bottom].ADX_14  # lots a decimals, an unwanted direct match is unlikely
             if adx_df.iloc[index_of_bottom].ADX_14 < 25:  # bottom is pretty low
                 if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1:  # last adx change was pretty strong
                     if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= .5 and adx_df.iloc[2].ADX_14 - adx_df.iloc[3].ADX_14 >= .5:  # the two before that were building strength
                         # print(adx_dict["last_adx_bottom"], adx_df.iloc[index_of_bottom].ADX_14)
-                        if adx_dict["last_adx_bottom"] != adx_df.iloc[index_of_bottom].ADX_14:  # continues to update bottoms while in a trade
+                        if round(adx_dict["last_adx_bottom"], 4) != round(adx_df.iloc[index_of_bottom].ADX_14, 4):  # continues to update bottoms while in a trade, must round for sure equality due to how digits are stored in df.
+                            # print(adx_dict["last_adx_bottom"], adx_df.iloc[index_of_bottom].ADX_14)
                             signal_string = "signal_buy" if adx_direction > 0 else "signal_sell"
                             if df.loc[symbol].adx_signal == "none":
                                 winsound.PlaySound('ding.wav', winsound.SND_FILENAME)
+                        # else:
+                        #     winsound.PlaySound('deep.wav', winsound.SND_FILENAME)
+                        #     print(symbol, "rejecting because ADX bottoms match")
         df.loc[symbol].adx_signal = signal_string  # set buy sell none signal
 
         # adx_under_15_count = 0
@@ -1088,7 +1093,10 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             i = 0
             # print(df.head(10))
             print(df[['signal', 'atr_count', 'stairs', 'adx_signal', 'spread %', 'spread', 'vwap',
-                      'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'in_trade', 'banned', 'calculable']].head(20))
+                      'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'in_trade', 'tradeable', 'calculable']].head(20))
+            if x.hour == 8:
+                print("waiting until 9am")
+                return
             positions = ib.positions()  # get positions
             df_positions = util.df(positions)  # create dataframe with positions
             # print(df_positions)
@@ -1130,8 +1138,8 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             index_count = 0  # doesn't affect trading logic, just controls a print statement
 
             max_position_count = 10 + 1  # add one if we're holding a long term SPY position // Allows 10 positions to be open at one time but not more.
-            tradeable_count = 10  # only open trades for the top symbols in the sorted df corresponds to tradeable // only look at the top 8 symbols
-            calculable_count = tradeable_count + 5
+            # tradeable_count = 10  # only open trades for the top symbols in the sorted df corresponds to tradeable // only look at the top 8 symbols
+            # calculable_count = 15
             max_daily_trades = 1000  # limits max trades per day to 10
             atr_count_entry = 3  # place a limit order when atr_count == 3
             for index, row in df.iterrows():
@@ -1200,15 +1208,17 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 # index_count += 1
 
                 tradeable = False
-                if tradeable_count > 0:
+                if df.loc[symbol]["spread %"] < .14:
                     tradeable = True
-                tradeable_count -= 1
+                    df.loc[symbol].tradeable = "yes"
+                else:
+                    df.loc[symbol].tradeable = "no"
+                # tradeable_count -= 1
 
-                if calculable_count > 0:  # help limit resource use by only calculating adx on tradeable contracts
+                if df.loc[symbol]["spread %"] < .18 or tradeable:  # help limit resource use by only calculating adx on tradeable contracts
                     df.loc[contract.symbol].calculable = "yes"
                 else:
                     df.loc[contract.symbol].calculable = "no"
-                calculable_count -= 1
 
                 try:
                     df.loc[symbol]["spread %"] = mean(dict_spreads[symbol])  # spreads are saved as a %, spread/atr
@@ -1356,7 +1366,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             order2 = StopOrder(action, abs(qty_close), price2)
                             place_oca_orders(contract, order1, order2)
 
-                # modify stop loss price for closing order 
+                # modify stop loss price for closing order
                 if contract in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
                     for trade in open_trades:
                         if trade.contract.symbol == symbol:
@@ -1538,6 +1548,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             if x.hour == 14 and x.minute >= 55:
                 close_position(1)  # closes all positions
                 print("closed all positions at 2:55")
+                print("stopping algo")
                 ib.disconnect()
                 quit(0)
             # print("loop : " + str(datetime.datetime.now() - x))
