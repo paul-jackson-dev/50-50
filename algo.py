@@ -4,7 +4,7 @@ import pandas_ta as ta
 import nest_asyncio
 import random
 import datetime
-# from datetime import datetime
+from datetime import timezone
 import json
 import math
 from statistics import mean
@@ -1077,6 +1077,7 @@ global loop_count
 
 # loop_count = 0
 def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event listener
+    x = datetime.datetime.now()  # x.hour returns hour
     global last_trade_loop_time
     last_loop_seconds = (x - last_trade_loop_time).total_seconds()
     if bars.contract.symbol == symbols[0] and last_loop_seconds >= 4:
@@ -1280,14 +1281,14 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
                     df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
                     if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
-                        if tradeable and df.loc[symbol].adx_signal == "signal_sell":  # trying mean reversion strategy
+                        if tradeable and df.loc[symbol].adx_signal == "signal_buy":  # trying mean reversion strategy
                             df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                             print(symbol, "Buying - Signal Up")
                             market_order = MarketOrder("BUY", abs(qty))
                             ib.placeOrder(contract, market_order)
                             ib.sleep(0)
 
-                        if tradeable and df.loc[symbol].adx_signal == "signal_buy":  # trying mean reversion strategy
+                        if tradeable and df.loc[symbol].adx_signal == "signal_sell":  # trying mean reversion strategy
                             df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                             print(symbol, "Selling - Signal Down")
                             market_order = MarketOrder("SELL", abs(qty))
@@ -1364,29 +1365,39 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             place_oca_orders(contract, order1, order2)
 
                 # modify stop loss price for closing order
-                if contract in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
+                if 1 == 0 and contract in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
                     for trade in open_trades:
                         if trade.contract.symbol == symbol:
-                            if trade.order.orderType == "LMT" and trade.order.action == "BUY":
-                                if trade.order.lmtPrice != round(bar_open - atr, 2):
-                                    trade.order.lmtPrice = round(bar_open - atr, 2)
-                                    ib.placeOrder(contract, trade.order)
-                                    print(str(symbol) + " Limit Price changed to " + str(round(bar_open + atr, 2)))
-                            if trade.order.orderType == "LMT" and trade.order.action == "SELL":
-                                if trade.order.lmtPrice != round(bar_open + atr, 2):
-                                    trade.order.lmtPrice = round(bar_open + atr, 2)
-                                    ib.placeOrder(contract, trade.order)
-                                    print(str(symbol) + " Limit Price changed to " + str(round(bar_open - atr, 2)))
-                            # if trade.order.orderType == "STP" and trade.order.action == "BUY":
-                            #     if trade.order.auxPrice != round(bar_open + atr, 2):
-                            #         trade.order.auxPrice = round(bar_open + atr, 2)
-                            #         ib.placeOrder(contract, trade.order)
-                            #         print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open + atr, 2)))
-                            # if trade.order.orderType == "STP" and trade.order.action == "SELL":
-                            #     if trade.order.auxPrice != round(bar_open - atr, 2):
-                            #         trade.order.auxPrice = round(bar_open - atr, 2)
-                            #         ib.placeOrder(contract, trade.order)
-                            #         print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open - atr, 2)))
+                            # try:
+                            # print(datetime.datetime.now(timezone.utc))
+                            # print(trade.log[0].time)
+                            # print(datetime.datetime.now(timezone.utc) - trade.log[0].time)
+                            # print((datetime.datetime.now(timezone.utc) - trade.log[0].time).total_seconds())
+                            # print(trade.log)
+                            # except Exception as error:
+                            #     print(error)
+                            # print(symbol, (datetime.datetime.utcnow() - trade.log[0].time).total_seconds())
+                            if (datetime.datetime.now(timezone.utc) - trade.log[0].time).total_seconds() > 10:  # don't modify an order too quickly, let the bars update after entry
+                                if trade.order.orderType == "LMT" and trade.order.action == "BUY":
+                                    if trade.order.lmtPrice != round(bar_open - atr, 2):
+                                        trade.order.lmtPrice = round(bar_open - atr, 2)
+                                        ib.placeOrder(contract, trade.order)
+                                        print(str(symbol) + " limit price changed to " + str(round(bar_open + atr, 2)))
+                                if trade.order.orderType == "LMT" and trade.order.action == "SELL":
+                                    if trade.order.lmtPrice != round(bar_open + atr, 2):
+                                        trade.order.lmtPrice = round(bar_open + atr, 2)
+                                        ib.placeOrder(contract, trade.order)
+                                        print(str(symbol) + " limit price changed to " + str(round(bar_open - atr, 2)))
+                                # if trade.order.orderType == "STP" and trade.order.action == "BUY":
+                                #     if trade.order.auxPrice != round(bar_open + atr, 2):
+                                #         trade.order.auxPrice = round(bar_open + atr, 2)
+                                #         ib.placeOrder(contract, trade.order)
+                                #         print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open + atr, 2)))
+                                # if trade.order.orderType == "STP" and trade.order.action == "SELL":
+                                #     if trade.order.auxPrice != round(bar_open - atr, 2):
+                                #         trade.order.auxPrice = round(bar_open - atr, 2)
+                                #         ib.placeOrder(contract, trade.order)
+                                #         print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open - atr, 2)))
 
                 ##############################################################################################################
                 """
