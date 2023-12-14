@@ -18,6 +18,45 @@ ib = IB()
 ib.connect('127.0.0.1', 7497, clientId=1)
 nest_asyncio.apply()  # patch for asyncio to stop a loop error when trying to ib.sleep
 
+# # calculate win rate
+# completed_trades = ib.trades()
+# trade_list = []
+# for trade in completed_trades:
+#     if trade.orderStatus.status == "Filled":  # make sure orders were filled and not cancelled
+#         price = 0
+#         qty = 0
+#         for fill in trade.fills:  # calculate average_price
+#             price += fill.execution.price * fill.execution.shares
+#             qty += fill.execution.shares
+#         avg_price = round(price / qty, 2)
+#         trade_list.append({"symbol": trade.contract.symbol, "action": trade.order.action, "qty": qty, "price": avg_price, "time": trade.log[0].time})
+#
+# # trade_list = sorted(trade_list, key=lambda d: d['time'])  # sort the list based on time
+# trade_list = sorted(trade_list, key=lambda d: (d['symbol'], d['time']))  # sort the list by symbol and time
+# print(len(trade_list))
+# win = 0
+# loss = 0
+# close_date = datetime.datetime.now(timezone.utc)
+# for idx, trade in enumerate(trade_list):
+#     try:
+#         if trade["symbol"] == trade_list[idx + 1]["symbol"] and trade["time"] != close_date:
+#             close_date = trade_list[idx + 1]["time"]  # set time of closing trade so we don't look at it again
+#             if trade["action"] == "BUY":
+#                 if trade["price"] < trade_list[idx + 1]["price"]:
+#                     win += 1
+#                 else:
+#                     loss += 1
+#             if trade["action"] == "SELL":
+#                 if trade["price"] > trade_list[idx + 1]["price"]:
+#                     win += 1
+#                 else:
+#                     loss += 1
+#     except:
+#         pass  # out of bounds
+# print("win :", win, "loss :", loss)
+# ib.disconnect()
+# quit(0)
+
 while True:
     time = datetime.datetime.now()
     if time.hour == 8:
@@ -1546,6 +1585,43 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 if i == 10:  # iterate over the top 10 spread %
                     break
                 """
+
+            # calculate win rate
+            completed_trades = ib.trades()
+            trade_list = []
+            for trade in completed_trades:
+                if trade.orderStatus.status == "Filled":  # make sure orders were filled and not cancelled
+                    price = 0
+                    qty = 0
+                    for fill in trade.fills:  # calculate average_price
+                        price += fill.execution.price * fill.execution.shares
+                        qty += fill.execution.shares
+                    avg_price = round(price / qty, 2)
+                    trade_list.append({"symbol": trade.contract.symbol, "action": trade.order.action, "qty": qty, "price": avg_price, "time": trade.log[0].time})  # add dict to list
+
+            # trade_list = sorted(trade_list, key=lambda d: d['time'])  # sort the list based on time
+            trade_list = sorted(trade_list, key=lambda d: (d['symbol'], d['time']))  # sort the list by symbol and time
+            win = 0
+            loss = 0
+            close_date = datetime.datetime.now(timezone.utc)
+            for idx, trade in enumerate(trade_list):
+                try:
+                    if trade["symbol"] == trade_list[idx + 1]["symbol"] and trade["time"] != close_date:
+                        close_date = trade_list[idx + 1]["time"]  # set time of closing trade, so we don't look at it again
+                        if trade["action"] == "BUY":
+                            if trade["price"] < trade_list[idx + 1]["price"]:
+                                win += 1
+                            else:
+                                loss += 1
+                        if trade["action"] == "SELL":
+                            if trade["price"] > trade_list[idx + 1]["price"]:
+                                win += 1
+                            else:
+                                loss += 1
+                except:
+                    pass  # out of bounds
+            # print("win :", win, "loss :", loss)
+
             profit_sum = round(df['pnl'].sum() + pnl[0].realizedPnL, 2)
             # print("profit " + str(profit_sum))
 
@@ -1553,7 +1629,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             for fill in ib.fills():
                 commission += fill.commissionReport.commission
             # print("commission", round(commission, 2) * -1)
-            print("profit:", profit_sum, "commission:", round(commission, 2) * -1)
+            print("profit:", profit_sum, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss)
             # if profit_sum > 50:
             #     close_position(1)
             #     print("closing all for profit")
