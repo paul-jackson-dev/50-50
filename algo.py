@@ -532,7 +532,7 @@ symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['MSFT']
 # symbols = ['TSLA']
-time_frame = 2
+time_frame = 5
 
 # symbols = ['TSLA']
 
@@ -596,6 +596,14 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     global df
     contract = bars.contract
     symbol = bars.contract.symbol
+
+    # cancel subscriptions we don't need
+    bar_timeframe = int(''.join(filter(str.isdigit, bars.barSizeSetting)))  # search string '5 mins' for int
+    # print(bar_timeframe == time_frame)
+    if df.loc[symbol].calculable == "no" and not math.isnan(df.loc[symbol]["spread %"]) and symbol != symbols[0]:  # don't cancel the first symbol, it acts as a master symbol
+        ib.cancelHistoricalData(bars)
+        print(symbol, ": not tradeable, cancelling subscription")
+
     data = bars
     df_bars = util.df(data)
     try:  # sometimes bar data doesn't load for some amount of time
@@ -1095,6 +1103,11 @@ for contract in contracts:
 # #quit(0)
 #
 #
+# ib.sleep(5)
+# onBarUpdateNew(bars, True)
+# ib.sleep(1)
+# onBarUpdateNew(bars, True)
+# ib.sleep(.5)
 # onBarUpdateNew(bars, True)
 # ib.disconnect()
 # quit(0)
@@ -1252,7 +1265,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                     df.loc[symbol].tradeable = "no"
                 # tradeable_count -= 1
 
-                if df.loc[symbol]["spread %"] < .18 or tradeable:  # help limit resource use by only calculating adx on tradeable contracts
+                if df.loc[symbol]["spread %"] < .16 or tradeable:  # help limit resource use by only calculating adx on tradeable contracts
                     df.loc[contract.symbol].calculable = "yes"
                 else:
                     df.loc[contract.symbol].calculable = "no"
@@ -1320,14 +1333,14 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
                     df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
                     if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
-                        if tradeable and df.loc[symbol].adx_signal == "signal_buy":  # trying mean reversion strategy
+                        if tradeable and df.loc[symbol].adx_signal == "signal_sell":  # trying mean reversion strategy
                             df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                             print(symbol, "Buying - Signal Up")
                             market_order = MarketOrder("BUY", abs(qty))
                             ib.placeOrder(contract, market_order)
                             ib.sleep(0)
 
-                        if tradeable and df.loc[symbol].adx_signal == "signal_sell":  # trying mean reversion strategy
+                        if tradeable and df.loc[symbol].adx_signal == "signal_buy":  # trying mean reversion strategy
                             df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                             print(symbol, "Selling - Signal Down")
                             market_order = MarketOrder("SELL", abs(qty))
