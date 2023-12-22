@@ -597,12 +597,12 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     contract = bars.contract
     symbol = bars.contract.symbol
 
-    # cancel subscriptions we don't need
-    bar_timeframe = int(''.join(filter(str.isdigit, bars.barSizeSetting)))  # search string '5 mins' for int
-    # print(bar_timeframe == time_frame)
-    if df.loc[symbol].calculable == "no" and not math.isnan(df.loc[symbol]["spread %"]) and symbol != symbols[0]:  # don't cancel the first symbol, it acts as a master symbol
-        ib.cancelHistoricalData(bars)
-        print(symbol, ": not tradeable, cancelling subscription")
+    # # cancel subscriptions we don't need
+    # bar_timeframe = int(''.join(filter(str.isdigit, bars.barSizeSetting)))  # search string '5 mins' for int
+    # # print(bar_timeframe == time_frame)
+    # if df.loc[symbol].calculable == "no" and not math.isnan(df.loc[symbol]["spread %"]) and symbol != symbols[0]:  # don't cancel the first symbol, it acts as a master symbol
+    #     ib.cancelHistoricalData(bars)
+    #     print(symbol, ": not tradeable, cancelling subscription")
 
     data = bars
     df_bars = util.df(data)
