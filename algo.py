@@ -1333,14 +1333,14 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
                     df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
                     if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
-                        if tradeable and df.loc[symbol].adx_signal == "signal_sell":  # trying mean reversion strategy
+                        if tradeable and df.loc[symbol].adx_signal == "signal_buy":  # trend following
                             df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                             print(symbol, "Buying - Signal Up")
                             market_order = MarketOrder("BUY", abs(qty))
                             ib.placeOrder(contract, market_order)
                             ib.sleep(0)
 
-                        if tradeable and df.loc[symbol].adx_signal == "signal_buy":  # trying mean reversion strategy
+                        if tradeable and df.loc[symbol].adx_signal == "signal_sell":  # trend following
                             df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                             print(symbol, "Selling - Signal Down")
                             market_order = MarketOrder("SELL", abs(qty))
