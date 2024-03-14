@@ -532,7 +532,7 @@ symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['MSFT']
 # symbols = ['TSLA']
-time_frame = 5
+time_frame = 1
 
 # symbols = ['TSLA']
 
@@ -642,7 +642,16 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     atr_1 = round(atr_df.iloc[-2].atr, 4)
     df.loc[symbol].atr = atr
 
-    if df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
+    # look for possible wick patterns
+    if df.loc[symbol].calculable == "yes":
+        if df_bars.iloc[-1].close - df_bars.iloc[-1].open > atr:
+            print("bear wick possible: " + symbol)
+        elif df_bars.iloc[-1].open - df_bars.iloc[-1].close > atr:
+            print("bull wick possible: " + symbol)
+
+
+    # turn off adx for now
+    if 1 ==0 and df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
         # calcuate ADX
         adx_df = ta.adx(high=calc_bars['high'].tail(550), low=calc_bars['low'].tail(550),
                         close=calc_bars['close'].tail(550), timeperiod=14, tvmode=True)  # running dev version of talib. tvmode replicates the code on TradingView
@@ -1666,7 +1675,9 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 quit(0)
             # print("loop : " + str(datetime.datetime.now() - x))
             # ib.sleep(3)
-        except:
+        # except:
+        except Exception as error:
+            print(error)
             print("wait for more data, returning")
             return
 
