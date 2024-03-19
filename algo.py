@@ -579,7 +579,7 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                            'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3', 'set_time_vwap_per',
                            'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade', 'adx_signal', 'adx_dict',
-                           'calculable', 'tradeable'])
+                           'calculable', 'tradeable', 'wick_signal'])
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
@@ -591,7 +591,7 @@ for c in contracts:
 # df = df.drop(["test"]).reset_index(drop=True)
 def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     xz = datetime.datetime.now()
-    if xz.second % 2 != 0:  # reduce cpu load and only calculate every 2 seconds
+    if xz.second % 1 != 0:  # reduce cpu load and only calculate every 2 seconds
         return
     global df
     contract = bars.contract
@@ -644,11 +644,15 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
 
     # look for possible wick patterns
     if df.loc[symbol].calculable == "yes":
-        if df_bars.iloc[-1].close - df_bars.iloc[-1].open > atr:
-            print("bear wick possible: " + symbol)
-        elif df_bars.iloc[-1].open - df_bars.iloc[-1].close > atr:
-            print("bull wick possible: " + symbol)
-
+        wick_string = "none"
+        if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr:
+            wick_string = "bear wick possible"
+        if df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr:
+            wick_string = "bull wick possible"
+        if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr and df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr:
+            wick_string = "bull/bear wick possible"
+        df.loc[symbol].wick_signal = wick_string
+        # print(wick_string, symbol)
 
     # turn off adx for now
     if 1 ==0 and df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
@@ -1141,7 +1145,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
     x = datetime.datetime.now()  # x.hour returns hour
     global last_trade_loop_time
     last_loop_seconds = (x - last_trade_loop_time).total_seconds()
-    if bars.contract.symbol == symbols[0] and last_loop_seconds >= 4:
+    if bars.contract.symbol == symbols[0] and last_loop_seconds >= 2:
         last_trade_loop_time = x
         try:
             #     global loop_count
@@ -1151,7 +1155,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             df = df.sort_values(by=['spread %'])
             i = 0
             # print(df.head(10))
-            print(df[['signal', 'atr_count', 'stairs', 'adx_signal', 'spread %', 'spread', 'vwap',
+            print(df[['signal', 'atr_count', 'stairs', 'wick_signal', 'adx_signal', 'spread %', 'spread', 'vwap',
                       'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'in_trade', 'tradeable', 'calculable']].head(20))
             if x.hour == 8:
                 print("waiting until 9am")
@@ -1341,20 +1345,36 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 # open a new order to manage
                 if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
                     df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
-                    if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
-                        if tradeable and df.loc[symbol].adx_signal == "signal_buy":  # trend following
-                            df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
-                            print(symbol, "Buying - Signal Up")
-                            market_order = MarketOrder("BUY", abs(qty))
-                            ib.placeOrder(contract, market_order)
-                            ib.sleep(0)
+                    # if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
+                    if tradeable and df.loc[symbol].wick_signal == "bull wick possible":  # trend following
+                        # df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
+                        print(symbol, "Opening Buy Stop Order - possible bull wick")
+                        stop_order_to_open = StopOrder("BUY", abs(qty), bar_open)
+                        ib.placeOrder(contract, stop_order_to_open)
+                        ib.sleep(0)
 
-                        if tradeable and df.loc[symbol].adx_signal == "signal_sell":  # trend following
-                            df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
-                            print(symbol, "Selling - Signal Down")
-                            market_order = MarketOrder("SELL", abs(qty))
-                            ib.placeOrder(contract, market_order)
-                            ib.sleep(0)
+                    if tradeable and df.loc[symbol].adx_signal == "bear wick possible":  # trend following
+                        # df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
+                        print(symbol, "Opening Sell Stop Order - possible bear wick")
+                        stop_order_to_open = StopOrder("SELL", abs(qty), bar_open)
+                        ib.placeOrder(contract, stop_order_to_open)
+                        ib.sleep(0)
+
+                    # if tradeable and df.loc[symbol].adx_signal == "signal_buy":  # trend following
+                    #     df.loc[symbol].adx_dict[
+                    #         "last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
+                    #     print(symbol, "Buying - Signal Up")
+                    #     market_order = MarketOrder("BUY", abs(qty))
+                    #     ib.placeOrder(contract, market_order)
+                    #     ib.sleep(0)
+                    #
+                    # if tradeable and df.loc[symbol].adx_signal == "signal_sell":  # trend following
+                    #     df.loc[symbol].adx_dict[
+                    #         "last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
+                    #     print(symbol, "Selling - Signal Down")
+                    #     market_order = MarketOrder("SELL", abs(qty))
+                    #     ib.placeOrder(contract, market_order)
+                    #     ib.sleep(0)
 
                 # open and manage positions based on atr_count
                 # open a new order to manage
@@ -1382,11 +1402,11 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 #             print(symbol + ": opening sell order")
 
                 # cancel an order that is no longer relevant
-                # if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and abs(atr_count) < atr_count_entry:
-                #     for trade in open_trades:
-                #         if trade.contract.symbol == symbol:
-                #             cancel_single_order(trade.order)
-                #             print(symbol + ": cancelling order")
+                if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and df.loc[symbol].adx_signal == "none":
+                    for trade in open_trades:
+                        if trade.contract.symbol == symbol:
+                            cancel_single_order(trade.order)
+                            print(symbol + ": cancelling order")
 
                 # modify an opening orders price
                 # if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
