@@ -65,6 +65,7 @@ while True:
     else:
         break
     ib.sleep(3)
+    print("waiting for 8:30")
 
 
 def place_oca_orders(contract, order1, order2):
@@ -138,7 +139,8 @@ def close_position(percent):  # closes all positions
         for q in pos.index:
             if 'SPY' == getattr(pos.contract[q], 'symbol'):
                 continue
-            if 'SPY' != getattr(pos.contract[q], 'symbol'):  # send order to close position # but don't close SPY or other long term investments
+            if 'SPY' != getattr(pos.contract[q],
+                                'symbol'):  # send order to close position # but don't close SPY or other long term investments
                 if pos.position[q] > 0:
                     direction = 'SELL'
                 else:
@@ -160,7 +162,8 @@ def close_single_position(closing_symbol):
         for q in pos.index:
             if 'SPY' == getattr(pos.contract[q], 'symbol'):
                 continue
-            if 'SPY' != getattr(pos.contract[q], 'symbol'):  # send order to close position # but don't close SPY or other long term investments
+            if 'SPY' != getattr(pos.contract[q],
+                                'symbol'):  # send order to close position # but don't close SPY or other long term investments
                 if pos.position[q] > 0:
                     direction = 'SELL'
                 else:
@@ -210,10 +213,13 @@ def place_orders(desired_orders, contract, order_type, bars=0, trailingPercent=0
     if order_type == "open":
         # order1 = StopOrder(desired_orders.action[0], desired_orders.totalQuantity[0], desired_orders.price[0])  #follow through
         # order2 = StopOrder(desired_orders.action[1], desired_orders.totalQuantity[1], desired_orders.price[1])  #follow through
-        order1 = LimitOrder(desired_orders.action[0], desired_orders.totalQuantity[0], desired_orders.price[0])  # reversal
-        order2 = LimitOrder(desired_orders.action[1], desired_orders.totalQuantity[1], desired_orders.price[1])  # reversal
+        order1 = LimitOrder(desired_orders.action[0], desired_orders.totalQuantity[0],
+                            desired_orders.price[0])  # reversal
+        order2 = LimitOrder(desired_orders.action[1], desired_orders.totalQuantity[1],
+                            desired_orders.price[1])  # reversal
     elif order_type == "close":
-        order1 = StopOrder(desired_orders.action[0], desired_orders.totalQuantity[0], desired_orders.price[0])  # fixed stop order
+        order1 = StopOrder(desired_orders.action[0], desired_orders.totalQuantity[0],
+                           desired_orders.price[0])  # fixed stop order
         ''' # trailing stop loss order
         order1 = Order()
         order1.action = desired_orders.action[0]
@@ -223,7 +229,8 @@ def place_orders(desired_orders, contract, order_type, bars=0, trailingPercent=0
         order1.trailStopPrice = desired_orders.price[0]
         '''  # end trailing stop order
 
-        order2 = LimitOrder(desired_orders.action[1], desired_orders.totalQuantity[1], desired_orders.price[1])  # fixed limit order
+        order2 = LimitOrder(desired_orders.action[1], desired_orders.totalQuantity[1],
+                            desired_orders.price[1])  # fixed limit order
     orders = [order1, order2]
     oca = str(random.randint(100000000, 99999999999))
     ib.oneCancelsAll(orders, oca, 1)
@@ -532,7 +539,7 @@ symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['MSFT']
 # symbols = ['TSLA']
-time_frame = 1
+time_frame = 5
 
 # symbols = ['TSLA']
 
@@ -575,10 +582,14 @@ ib.qualifyContracts(*contracts)
 #################################################################################################################
 global df
 df = pd.DataFrame(index=[c.symbol for c in contracts],
-                  columns=['spread %', 'spread', 'vwap', 'mid_price', 'atr', 'set_time_vwap', 'vwap_1', 'vwap_2', 'vwap_3',
-                           'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
-                           'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3', 'set_time_vwap_per',
-                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade', 'adx_signal', 'adx_dict',
+                  columns=['spread %', 'spread', 'vwap', 'mid_price', 'atr', 'set_time_vwap', 'vwap_1', 'vwap_2',
+                           'vwap_3',
+                           'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract',
+                           'sum_percent',
+                           'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3',
+                           'set_time_vwap_per',
+                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade', 'adx_signal',
+                           'adx_dict',
                            'calculable', 'tradeable', 'wick_signal'])
 dict_spreads = {}
 for c in contracts:
@@ -655,10 +666,11 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         # print(wick_string, symbol)
 
     # turn off adx for now
-    if 1 ==0 and df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
+    if 1 == 0 and df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
         # calcuate ADX
         adx_df = ta.adx(high=calc_bars['high'].tail(550), low=calc_bars['low'].tail(550),
-                        close=calc_bars['close'].tail(550), timeperiod=14, tvmode=True)  # running dev version of talib. tvmode replicates the code on TradingView
+                        close=calc_bars['close'].tail(550), timeperiod=14,
+                        tvmode=True)  # running dev version of talib. tvmode replicates the code on TradingView
         # print(symbol)
         # print(calc_bars)
         # print(adx_df)
@@ -686,13 +698,17 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         signal_string = "none"
         adx_dict = df.loc[symbol].adx_dict
         if index_of_bottom:  # bottom is recent
-            if df.loc[symbol].in_trade != "none" or df.loc[symbol].tradeable == "no":  # we're in a trade, record the most recent bottom or this symbol isn't tradeable and we want to prevent false signals if it becomes tradeable
-                adx_dict["last_adx_bottom"] = adx_df.iloc[index_of_bottom].ADX_14  # lots a decimals, an unwanted direct match is unlikely
+            if df.loc[symbol].in_trade != "none" or df.loc[
+                symbol].tradeable == "no":  # we're in a trade, record the most recent bottom or this symbol isn't tradeable and we want to prevent false signals if it becomes tradeable
+                adx_dict["last_adx_bottom"] = adx_df.iloc[
+                    index_of_bottom].ADX_14  # lots a decimals, an unwanted direct match is unlikely
             if adx_df.iloc[index_of_bottom].ADX_14 < 25:  # bottom is pretty low
                 if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1:  # last adx change was pretty strong
-                    if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= .5 and adx_df.iloc[2].ADX_14 - adx_df.iloc[3].ADX_14 >= .5:  # the two before that were building strength
+                    if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= .5 and adx_df.iloc[2].ADX_14 - adx_df.iloc[
+                        3].ADX_14 >= .5:  # the two before that were building strength
                         # print(adx_dict["last_adx_bottom"], adx_df.iloc[index_of_bottom].ADX_14)
-                        if round(adx_dict["last_adx_bottom"], 4) != round(adx_df.iloc[index_of_bottom].ADX_14, 4):  # continues to update bottoms while in a trade, must round for sure equality due to how digits are stored in df.
+                        if round(adx_dict["last_adx_bottom"], 4) != round(adx_df.iloc[index_of_bottom].ADX_14,
+                                                                          4):  # continues to update bottoms while in a trade, must round for sure equality due to how digits are stored in df.
                             # print(adx_dict["last_adx_bottom"], adx_df.iloc[index_of_bottom].ADX_14)
                             signal_string = "signal_buy" if adx_direction > 0 else "signal_sell"
                             if df.loc[symbol].adx_signal == "none":
@@ -766,7 +782,8 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
                 else:
                     signal_up = False
             if signal_up:
-                if not ema_df.iloc[-2].ema9 - ema_df.iloc[-11].ema9 > atr_1:  # use negative indexing to calculate from the most recent
+                if not ema_df.iloc[-2].ema9 - ema_df.iloc[
+                    -11].ema9 > atr_1:  # use negative indexing to calculate from the most recent
                     signal_up = False
             if signal_up:
                 bars_up_count = 0
@@ -788,7 +805,8 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
                 else:
                     signal_down = False
             if signal_down:
-                if not ema_df.iloc[-11].ema9 - ema_df.iloc[-2].ema9 > atr_1:  # use negative indexing to calculate from the most recent
+                if not ema_df.iloc[-11].ema9 - ema_df.iloc[
+                    -2].ema9 > atr_1:  # use negative indexing to calculate from the most recent
                     signal_down = False
             if signal_down:
                 bars_down_count = 0
@@ -891,7 +909,8 @@ def onPendingTickers(tickers):
                 df.loc[symbol].vwap_per_3 = df.loc[symbol].vwap_per_2
                 df.loc[symbol].vwap_per_2 = df.loc[symbol].vwap_per_1
                 if not math.isnan(df.loc[symbol].atr):
-                    df.loc[symbol].vwap_per_1 = round((df.loc[symbol].vwap_1 - df.loc[symbol].vwap_2) / df.loc[symbol].atr, 2)
+                    df.loc[symbol].vwap_per_1 = round(
+                        (df.loc[symbol].vwap_1 - df.loc[symbol].vwap_2) / df.loc[symbol].atr, 2)
 
         df.loc[symbol].vwap = t.vwap
     # print("ticker : " + str(datetime.datetime.now() - xx))
@@ -1044,7 +1063,8 @@ for contract in contracts:
     df.loc[contract.symbol].in_trade = "none"
     df.loc[contract.symbol].signal = "none"
     df.loc[contract.symbol].adx_signal = "none"
-    df.loc[contract.symbol].adx_dict = {"last_adx_bottom": 0, "last_signal_time": datetime.datetime(2012, 3, 5, 23, 8, 15)}  # arbitrary date in the past
+    df.loc[contract.symbol].adx_dict = {"last_adx_bottom": 0, "last_signal_time": datetime.datetime(2012, 3, 5, 23, 8,
+                                                                                                    15)}  # arbitrary date in the past
     df.loc[contract.symbol].calculable = "no"
     # if contract.symbol == "MSFT":
     #     market_order = MarketOrder('SELL', 10)
@@ -1156,10 +1176,11 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             i = 0
             # print(df.head(10))
             print(df[['signal', 'atr_count', 'stairs', 'wick_signal', 'adx_signal', 'spread %', 'spread', 'vwap',
-                      'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'in_trade', 'tradeable', 'calculable']].head(20))
-            if x.hour == 8:
-                print("waiting until 9am")
-                return
+                      'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'in_trade', 'tradeable',
+                      'calculable']].head(20))
+            # if x.hour == 8:
+            #     print("waiting until 9am")
+            #     return
             positions = ib.positions()  # get positions
             df_positions = util.df(positions)  # create dataframe with positions
             # print(df_positions)
@@ -1271,14 +1292,14 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 # index_count += 1
 
                 tradeable = False
-                if df.loc[symbol]["spread %"] < .14:
+                if df.loc[symbol]["spread %"] <= .20:
                     tradeable = True
                     df.loc[symbol].tradeable = "yes"
                 else:
                     df.loc[symbol].tradeable = "no"
                 # tradeable_count -= 1
 
-                if df.loc[symbol]["spread %"] < .16 or tradeable:  # help limit resource use by only calculating adx on tradeable contracts
+                if df.loc[symbol]["spread %"] < .25 or tradeable:  # help limit resource use by only calculating adx on tradeable contracts
                     df.loc[contract.symbol].calculable = "yes"
                 else:
                     df.loc[contract.symbol].calculable = "no"
@@ -1308,7 +1329,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             df.loc[index].pnl = profit
 
                 i += 1
-                if not tradeable and contract not in [i.contract for i in positions]:  # iterate over the top 10 spread % and allow a position to be handled if > 10
+                if not tradeable and contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:  # iterate over the top 10 spread % and allow a position to be handled if > 10
                     continue
 
                 vwap_1 = df.loc[symbol].vwap_1
@@ -1343,7 +1364,8 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 ##############################################################################################################
                 # open and manage positions based on 'signal'
                 # open a new order to manage
-                if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
+                if contract not in [i.contract for i in positions] and contract not in [j.contract for j in
+                                                                                        open_trades]:
                     df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
                     # if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
                     if tradeable and df.loc[symbol].wick_signal == "bull wick possible":  # trend following
@@ -1353,7 +1375,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                         ib.placeOrder(contract, stop_order_to_open)
                         ib.sleep(0)
 
-                    if tradeable and df.loc[symbol].adx_signal == "bear wick possible":  # trend following
+                    if tradeable and df.loc[symbol].wick_signal == "bear wick possible":  # trend following
                         # df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                         print(symbol, "Opening Sell Stop Order - possible bear wick")
                         stop_order_to_open = StopOrder("SELL", abs(qty), bar_open)
@@ -1402,11 +1424,16 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 #             print(symbol + ": opening sell order")
 
                 # cancel an order that is no longer relevant
-                if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and df.loc[symbol].adx_signal == "none":
+                if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and df.loc[symbol].wick_signal == "none":
                     for trade in open_trades:
                         if trade.contract.symbol == symbol:
-                            cancel_single_order(trade.order)
-                            print(symbol + ": cancelling order")
+                            if trade.orderStatus.status != "PendingCancel":
+                                ib.cancelOrder(trade.order)
+                                # print(trade.order)
+                                # print(trade.orderStatus.status == "PendingCancel")
+                                print(symbol + ": cancelling order")
+                            else:
+                                print(symbol + ": pending cancellation")
 
                 # modify an opening orders price
                 # if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
@@ -1458,7 +1485,8 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             # except Exception as error:
                             #     print(error)
                             # print(symbol, (datetime.datetime.utcnow() - trade.log[0].time).total_seconds())
-                            if (datetime.datetime.now(timezone.utc) - trade.log[0].time).total_seconds() > 10:  # don't modify an order too quickly, let the bars update after entry
+                            if (datetime.datetime.now(timezone.utc) - trade.log[
+                                0].time).total_seconds() > 10:  # don't modify an order too quickly, let the bars update after entry
                                 if trade.order.orderType == "LMT" and trade.order.action == "BUY":
                                     if trade.order.lmtPrice != round(bar_open - atr, 2):
                                         trade.order.lmtPrice = round(bar_open - atr, 2)
@@ -1639,7 +1667,9 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                         price += fill.execution.price * fill.execution.shares
                         qty += fill.execution.shares
                     avg_price = round(price / qty, 2)
-                    trade_list.append({"symbol": trade.contract.symbol, "action": trade.order.action, "qty": qty, "price": avg_price, "time": trade.log[0].time})  # add dict to list
+                    trade_list.append(
+                        {"symbol": trade.contract.symbol, "action": trade.order.action, "qty": qty, "price": avg_price,
+                         "time": trade.log[0].time})  # add dict to list
 
             # trade_list = sorted(trade_list, key=lambda d: d['time'])  # sort the list based on time
             trade_list = sorted(trade_list, key=lambda d: (d['symbol'], d['time']))  # sort the list by symbol and time
@@ -1649,7 +1679,8 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             for idx, trade in enumerate(trade_list):
                 try:
                     if trade["symbol"] == trade_list[idx + 1]["symbol"] and trade["time"] != close_date:
-                        close_date = trade_list[idx + 1]["time"]  # set time of closing trade, so we don't look at it again
+                        close_date = trade_list[idx + 1][
+                            "time"]  # set time of closing trade, so we don't look at it again
                         if trade["action"] == "BUY":
                             if trade["price"] < trade_list[idx + 1]["price"]:
                                 win += 1
