@@ -67,7 +67,6 @@ while True:
     ib.sleep(3)
     print("waiting for 8:30")
 
-
 def place_oca_orders(contract, order1, order2):
     orders = [order1, order2]
     oca = str(random.randint(100000000, 99999999999))
@@ -651,7 +650,9 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
                         close=calc_bars['close'].tail(100), length=14, mamode='SMA')
     atr = round(atr_df.iloc[-1].atr, 4)
     atr_1 = round(atr_df.iloc[-2].atr, 4)
-    df.loc[symbol].atr = atr
+
+    if xz.hour == 8 and xz.minute < (30 + time_frame): # restrict updating ATR to first bar of the day, for early day trading.
+        df.loc[symbol].atr = atr
 
     # look for possible wick patterns
     if df.loc[symbol].calculable == "yes":
@@ -1703,6 +1704,18 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 commission += fill.commissionReport.commission
             # print("commission", round(commission, 2) * -1)
             print("profit:", profit_sum, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss)
+
+            # dump profit/loss to a .json file at fixed points of the day for review.
+            if x.hour == 8 and x.minute == 45 and x.second <= 10 or x.hour == 9 and x.minute == 0 and x.second <= 10:
+                dump_string = "profit: " + str(profit_sum) + " commission: " + str(round(commission, 2) * -1) + " win: " + str(win) + " loss: " + str(loss)
+                path = "json/" + "dump_string.json"
+                with open(path, 'r') as openfile:
+                    original_string = json.load(openfile)
+
+                with open(path, 'w') as file_object:
+                    string = original_string + '     ' + dump_string
+                    json.dump(string, file_object)
+
             # if profit_sum > 50:
             #     close_position(1)
             #     print("closing all for profit")
