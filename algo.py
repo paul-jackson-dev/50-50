@@ -531,9 +531,11 @@ def record_time(hour, minute, second, percentage):
 #            'LRCX', 'TXN']
 # symbols = ['TSLA', 'AAPL', 'NVDA', 'MSFT', 'AMZN', 'AMD', 'META', 'GOOGL', 'XOM', 'NFLX', 'V', 'JPM', 'OXY', 'JNJ',
 #            'PYPL', 'CVX', 'BAC', 'INTC', 'CRM', 'WMT']
-symbols = ["TSLA", "NVDA", "AAPL", "MSFT", "AMD", "AMZN", "META", "GOOGL", "NFLX", "AVGO", "XOM", "ADBE", "LLY", "JPM",
-           "V", "INTC", "HD", "CRM", "BAC", "UNH", "MU", "PYPL", "DIS", "PLTR", "CVX", "MRVL", "MA", "SNOW", "UBER",
-           "PFE", "QCOM", "CSCO", "PANW", "NOW", "COST", "BRK B", "TXN", "JNJ", "WFC", "BA"]
+symbols = ["NVDA","TSLA","AMD","AAPL","SMCI","MSFT","META","AMZN","AVGO","GOOGL","MU",
+           "ADBE","CMI","LLY","UNH","XOM","LIN","INTC","COST","CRM","NFLX","BA","V","PANW","JPM",
+           "ORCL","BAC","QCOM","MRK","CVX","PFE","GE","HD","DIS","AMAT","ABBV","UBER",
+           "BMY","WFC","PEP","MA","JNJ","LRCX","NKE","BKNG","CSCO","WMT","LULU","PYPL","TXN",
+           "IBM","ACN","MS","C",]
 # symbols = ['TSLA', 'AAPL', 'MSFT', 'NVDA', 'AMZN']
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['MSFT']
@@ -581,15 +583,11 @@ ib.qualifyContracts(*contracts)
 #################################################################################################################
 global df
 df = pd.DataFrame(index=[c.symbol for c in contracts],
-                  columns=['spread %', 'spread', 'vwap', 'mid_price', 'atr', 'set_time_vwap', 'vwap_1', 'vwap_2',
-                           'vwap_3',
-                           'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract',
-                           'sum_percent',
+                  columns=['spread %', 'spread', 'vwap', 'mid_price', 'atr', 'set_time_vwap', 'vwap_1', 'vwap_2', 'vwap_3',
+                           'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3',
-                           'set_time_vwap_per',
-                           'atr_count', 'set_time_atr', 'ticker_open', 'open', 'signal', 'in_trade', 'adx_signal',
-                           'adx_dict',
-                           'calculable', 'tradeable', 'wick_signal'])
+                           'set_time_vwap_per', 'atr_count', 'set_time_atr', 'ticker_open', 'open', 'high', 'low', 'signal', 'in_trade', 'adx_signal',
+                           'adx_dict', 'calculable', 'tradeable', 'wick_signal'])
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
@@ -618,6 +616,8 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     df_bars = util.df(data)
     try:  # sometimes bar data doesn't load for some amount of time
         df.loc[symbol].open = df_bars.iloc[-1].open
+        df.loc[symbol].high = df_bars.iloc[-1].high
+        df.loc[symbol].low = df_bars.iloc[-1].low
     except:
         pass
     previous_bar_time = (df_bars.iloc[-2].date).minute
@@ -646,22 +646,23 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     calc_bars = pd.DataFrame(bars)
     # print(len(calc_bars))
     atr_df = pd.DataFrame(columns=['atr'])  # erase old stuff
-    atr_df.atr = ta.atr(high=calc_bars['high'].tail(100), low=calc_bars['low'].tail(100),
-                        close=calc_bars['close'].tail(100), length=14, mamode='SMA')
+    atr_df.atr = ta.atr(high=calc_bars['high'].tail(750), low=calc_bars['low'].tail(750),
+                        close=calc_bars['close'].tail(750), length=500, mamode='SMA')
     atr = round(atr_df.iloc[-1].atr, 4)
     atr_1 = round(atr_df.iloc[-2].atr, 4)
 
-    if xz.hour == 8 and xz.minute < (30 + time_frame): # restrict updating ATR to first bar of the day, for early day trading.
-        df.loc[symbol].atr = atr
+    # if xz.hour == 8 and xz.minute < (30 + time_frame): # restrict updating ATR to first bar of the day, for early day trading.
+    #     df.loc[symbol].atr = atr
+    df.loc[symbol].atr = atr
 
     # look for possible wick patterns
     if df.loc[symbol].calculable == "yes":
         wick_string = "none"
-        if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr:
+        if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr*2:
             wick_string = "bear wick possible"
-        if df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr:
+        if df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr*2:
             wick_string = "bull wick possible"
-        if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr and df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr:
+        if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr*2 and df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr*2:
             wick_string = "bull/bear wick possible"
         df.loc[symbol].wick_signal = wick_string
         # print(wick_string, symbol)
@@ -976,6 +977,7 @@ def onPendingTickers(tickers):
 ########### delete after testing is done ###################
 
 for contract in contracts:
+    ib.sleep(.2)  # to prevent rate limiting
     ib.reqMktData(contract, '233', False, False)
     print(contract.symbol + " connected")
     # df1 = pd.DataFrame(data={'symbol': [contract.symbol], 'spread': [10], 'vwap': [1]})
@@ -1028,6 +1030,8 @@ ib.pendingTickersEvent += onPendingTickers
 #
 movement_dict = {}
 
+print("tickers connected, requesting historical bars")
+
 x = datetime.datetime.now()
 # # Request Streaming bars
 time_string = ""
@@ -1036,10 +1040,11 @@ if time_frame > 1:
 else:
     time_string = str(time_frame) + ' min'
 for contract in contracts:
+    ib.sleep(.2) # to prevent rate limiting
     bars = ib.reqHistoricalData(
         contract,
         endDateTime='',
-        durationStr='6 D',
+        durationStr='10 D',
         barSizeSetting=time_string,
         # barSizeSetting=str(time_frame) + ' min',
         # barSizeSetting='15 mins',
@@ -1047,6 +1052,7 @@ for contract in contracts:
         useRTH=False,  # use Regular Trading Hours True for Regular
         keepUpToDate=True,
     )
+    print(contract.symbol, "connected")
     df.loc[contract.symbol].set_time_vwap = 0
     df.loc[contract.symbol].contract = contract
     df.loc[contract.symbol].symbol = contract.symbol
@@ -1064,9 +1070,9 @@ for contract in contracts:
     df.loc[contract.symbol].in_trade = "none"
     df.loc[contract.symbol].signal = "none"
     df.loc[contract.symbol].adx_signal = "none"
-    df.loc[contract.symbol].adx_dict = {"last_adx_bottom": 0, "last_signal_time": datetime.datetime(2012, 3, 5, 23, 8,
-                                                                                                    15)}  # arbitrary date in the past
+    df.loc[contract.symbol].adx_dict = {"last_adx_bottom": 0, "last_signal_time": datetime.datetime(2012, 3, 5, 23, 8, 15)}  # arbitrary date in the past
     df.loc[contract.symbol].calculable = "no"
+    df.loc[contract.symbol].wick_signal = "none"
     # if contract.symbol == "MSFT":
     #     market_order = MarketOrder('SELL', 10)
     #     trade = ib.placeOrder(contract, market_order)
@@ -1237,6 +1243,8 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 mid = df.loc[index].mid_price
                 atr = df.loc[index].atr
                 bar_open = df.loc[index].open
+                bar_high = df.loc[index].high
+                bar_low = df.loc[index].low
                 last_check_minute = df.loc[index].set_time_vwap
                 contract = df.loc[index].contract
 
@@ -1365,21 +1373,22 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 ##############################################################################################################
                 # open and manage positions based on 'signal'
                 # open a new order to manage
-                if contract not in [i.contract for i in positions] and contract not in [j.contract for j in
-                                                                                        open_trades]:
+                if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
                     df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
                     # if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
                     if tradeable and df.loc[symbol].wick_signal == "bull wick possible":  # trend following
                         # df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                         print(symbol, "Opening Buy Stop Order - possible bull wick")
-                        stop_order_to_open = StopOrder("BUY", abs(qty), bar_open)
+                        opening_price = round(bar_low + atr*2, 2)
+                        stop_order_to_open = StopOrder("BUY", abs(qty), opening_price)
                         ib.placeOrder(contract, stop_order_to_open)
                         ib.sleep(0)
 
                     if tradeable and df.loc[symbol].wick_signal == "bear wick possible":  # trend following
                         # df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                         print(symbol, "Opening Sell Stop Order - possible bear wick")
-                        stop_order_to_open = StopOrder("SELL", abs(qty), bar_open)
+                        opening_price = round(bar_high - atr*2, 2)
+                        stop_order_to_open = StopOrder("SELL", abs(qty), opening_price)
                         ib.placeOrder(contract, stop_order_to_open)
                         ib.sleep(0)
 
@@ -1437,19 +1446,21 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                                 print(symbol + ": pending cancellation")
 
                 # modify an opening orders price
-                # if 1 == 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
-                #     for trade in open_trades:
-                #         if trade.contract.symbol == symbol:
-                #             if trade.order.action == "BUY":
-                #                 if trade.order.auxPrice != round(bar_open + atr, 2):
-                #                     trade.order.auxPrice = round(bar_open + atr, 2)
-                #                     ib.placeOrder(contract, trade.order)
-                #                     print(str(symbol) + " auxPrice changed to " + str(round(bar_open + atr, 3)))
-                #             if trade.order.action == "SELL":
-                #                 if trade.order.auxPrice != round(bar_open - atr, 2):
-                #                     trade.order.auxPrice = round(bar_open - atr, 2)
-                #                     ib.placeOrder(contract, trade.order)
-                #                     print(str(symbol) + " auxPrice changed to " + str(round(bar_open - atr, 3)))
+                if contract not in [i.contract for i in positions] and contract in [j.contract for j in ib.openTrades()]:
+                    for trade in open_trades:
+                        if trade.contract.symbol == symbol and trade.orderStatus.status != "Cancelled": # check if the order was just cancelled
+                            if trade.order.action == "BUY":
+                                desired_price = round(bar_low + atr*2, 2)
+                                if trade.order.auxPrice != desired_price:
+                                    trade.order.auxPrice = desired_price
+                                    ib.placeOrder(contract, trade.order)
+                                    print(str(symbol) + " auxPrice changed to " + str(desired_price))
+                            if trade.order.action == "SELL":
+                                desired_price = round(bar_high - atr*2, 2)
+                                if trade.order.auxPrice != desired_price:
+                                    trade.order.auxPrice = desired_price
+                                    ib.placeOrder(contract, trade.order)
+                                    print(str(symbol) + " auxPrice changed to " + str(desired_price))
 
                 # handle open positions and send closing orders
                 if contract in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
