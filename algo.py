@@ -60,13 +60,13 @@ nest_asyncio.apply()  # patch for asyncio to stop a loop error when trying to ib
 while True:
     time = datetime.datetime.now()
     if time.hour == 8:
-        if time.minute >= 30:
+        if time.minute >= 25:
             break
     else:
         break
     ib.sleep(3)
-    print("waiting for 8:30")
-
+    print("waiting for 8:25")
+# print("waiting for 8:30 is disabled")
 def place_oca_orders(contract, order1, order2):
     orders = [order1, order2]
     oca = str(random.randint(100000000, 99999999999))
@@ -648,7 +648,7 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     atr_df = pd.DataFrame(columns=['atr'])  # erase old stuff
     atr_df.atr = ta.atr(high=calc_bars['high'].tail(750), low=calc_bars['low'].tail(750),
                         close=calc_bars['close'].tail(750), length=500, mamode='SMA')
-    atr = round(atr_df.iloc[-1].atr, 4)
+    atr = round(atr_df.iloc[-1].atr, 4) # if atr is off, update useRTH (regular trading hours) when subscribing to historical data
     atr_1 = round(atr_df.iloc[-2].atr, 4)
 
     # if xz.hour == 8 and xz.minute < (30 + time_frame): # restrict updating ATR to first bar of the day, for early day trading.
@@ -1049,7 +1049,7 @@ for contract in contracts:
         # barSizeSetting=str(time_frame) + ' min',
         # barSizeSetting='15 mins',
         whatToShow='TRADES',
-        useRTH=False,  # use Regular Trading Hours True for Regular
+        useRTH=True,  # use Regular Trading Hours True for Regular
         keepUpToDate=True,
     )
     print(contract.symbol, "connected")
@@ -1073,6 +1073,8 @@ for contract in contracts:
     df.loc[contract.symbol].adx_dict = {"last_adx_bottom": 0, "last_signal_time": datetime.datetime(2012, 3, 5, 23, 8, 15)}  # arbitrary date in the past
     df.loc[contract.symbol].calculable = "no"
     df.loc[contract.symbol].wick_signal = "none"
+
+print("historical bars connected, waiting for open")
     # if contract.symbol == "MSFT":
     #     market_order = MarketOrder('SELL', 10)
     #     trade = ib.placeOrder(contract, market_order)
@@ -1376,7 +1378,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
                     df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
                     # if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
-                    if tradeable and df.loc[symbol].wick_signal == "bull wick possible":  # trend following
+                    if tradeable and df.loc[symbol].wick_signal == "bull wick possible" and (x.minute + 1) % time_frame == 0 and x.second >= 50:  # trend following
                         # df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                         print(symbol, "Opening Buy Stop Order - possible bull wick")
                         opening_price = round(bar_low + atr*2, 2)
@@ -1384,7 +1386,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                         ib.placeOrder(contract, stop_order_to_open)
                         ib.sleep(0)
 
-                    if tradeable and df.loc[symbol].wick_signal == "bear wick possible":  # trend following
+                    if tradeable and df.loc[symbol].wick_signal == "bear wick possible" and (x.minute + 1) % time_frame == 0 and x.second >= 50:  # trend following
                         # df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                         print(symbol, "Opening Sell Stop Order - possible bear wick")
                         opening_price = round(bar_high - atr*2, 2)
@@ -1743,7 +1745,13 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             #         string = ib.reqPnL(account)
             #         json.dump(string, file_object)
             if x.hour == 14 and x.minute >= 55:
-                close_position(1)  # closes all positions
+                while True:
+                    if contract in [i.contract for i in ib.positions()]:
+                        close_position(1)  # closes all positions
+                        ib.sleep(5) # wait and check again
+                    else:
+                        break
+
                 print("closed all positions at 2:55")
                 print("stopping algo")
                 ib.disconnect()
