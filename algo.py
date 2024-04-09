@@ -587,7 +587,7 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                            'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3',
                            'set_time_vwap_per', 'atr_count', 'set_time_atr', 'ticker_open', 'open', 'high', 'low', 'signal', 'in_trade', 'adx_signal',
-                           'adx_dict', 'calculable', 'tradeable', 'wick_signal'])
+                           'adx_dict', 'calculable', 'tradeable', 'wick_signal', 'wick_high', 'wick_low'])
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
@@ -660,10 +660,14 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         wick_string = "none"
         if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr*2:
             wick_string = "bear wick possible"
+            df.loc[symbol].wick_high = df_bars.iloc[-1].high # update these highs and lows only when conditions are present. these values are used for stop loss
         if df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr*2:
             wick_string = "bull wick possible"
+            df.loc[symbol].wick_low = df_bars.iloc[-1].low
         if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr*2 and df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr*2:
             wick_string = "bull/bear wick possible"
+            df.loc[symbol].wick_high = df_bars.iloc[-1].high
+            df.loc[symbol].wick_low = df_bars.iloc[-1].low
         df.loc[symbol].wick_signal = wick_string
         # print(wick_string, symbol)
 
@@ -1378,18 +1382,18 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
                     df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
                     # if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
-                    if tradeable and df.loc[symbol].wick_signal == "bull wick possible" and (x.minute + 1) % time_frame == 0 and x.second >= 50:  # trend following
+                    if tradeable and df.loc[symbol].wick_signal == "bull wick possible":# and (x.minute + 1) % time_frame == 0 and x.second >= 50:  # trend following
                         # df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                         print(symbol, "Opening Buy Stop Order - possible bull wick")
-                        opening_price = round(bar_low + atr*2, 2)
+                        opening_price = round(bar_open, 2)
                         stop_order_to_open = StopOrder("BUY", abs(qty), opening_price)
                         ib.placeOrder(contract, stop_order_to_open)
                         ib.sleep(0)
 
-                    if tradeable and df.loc[symbol].wick_signal == "bear wick possible" and (x.minute + 1) % time_frame == 0 and x.second >= 50:  # trend following
+                    if tradeable and df.loc[symbol].wick_signal == "bear wick possible":# and (x.minute + 1) % time_frame == 0 and x.second >= 50:  # trend following
                         # df.loc[symbol].adx_dict["last_signal_time"] = datetime.datetime.now()  # keep track of last trade time so we don't over trade
                         print(symbol, "Opening Sell Stop Order - possible bear wick")
-                        opening_price = round(bar_high - atr*2, 2)
+                        opening_price = round(bar_open, 2)
                         stop_order_to_open = StopOrder("SELL", abs(qty), opening_price)
                         ib.placeOrder(contract, stop_order_to_open)
                         ib.sleep(0)
@@ -1450,7 +1454,8 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 # modify an opening orders price
                 if contract not in [i.contract for i in positions] and contract in [j.contract for j in ib.openTrades()]:
                     for trade in open_trades:
-                        if trade.contract.symbol == symbol and trade.orderStatus.status != "Cancelled": # check if the order was just cancelled
+                        # wait until late in the bar and move the opening price from open to bar high/low  +- atr
+                        if trade.contract.symbol == symbol and trade.orderStatus.status != "Cancelled" and (x.minute + 1) % time_frame == 0 and x.second >= 53: # check if the order was just cancelled
                             if trade.order.action == "BUY":
                                 desired_price = round(bar_low + atr*2, 2)
                                 if trade.order.auxPrice != desired_price:
@@ -1473,13 +1478,13 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             if qty_close > 0:
                                 df.loc[symbol].in_trade = "up"
                                 action = "SELL"
-                                price1 = round(avg_cost + (atr * 1), 2)  # take profit
-                                price2 = round(avg_cost - (atr * 1), 2)  # stop loss
+                                price1 = round(avg_cost + (atr * 2), 2)  # take profit
+                                price2 = round(df.loc[symbol].wick_low, 2)  # stop loss
                             if qty_close < 0:
                                 df.loc[symbol].in_trade = "dn"
                                 action = "BUY"
-                                price1 = round(avg_cost - (atr * 1), 2)  # take profit
-                                price2 = round(avg_cost + (atr * 1), 2)  # stop loss
+                                price1 = round(avg_cost - (atr * 2), 2)  # take profit
+                                price2 = round(df.loc[symbol].wick_high, 2)  # stop loss
                             print(symbol, "Opening Take Profit and Stop Loss")
                             print(avg_cost, action, price1, price2, )
                             order1 = LimitOrder(action, abs(qty_close), price1)
