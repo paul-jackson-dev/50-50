@@ -138,8 +138,7 @@ def close_position(percent):  # closes all positions
         for q in pos.index:
             if 'SPY' == getattr(pos.contract[q], 'symbol'):
                 continue
-            if 'SPY' != getattr(pos.contract[q],
-                                'symbol'):  # send order to close position # but don't close SPY or other long term investments
+            if 'SPY' != getattr(pos.contract[q],'symbol'):  # send order to close position # but don't close SPY or other long term investments
                 if pos.position[q] > 0:
                     direction = 'SELL'
                 else:
@@ -1751,9 +1750,9 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             #         json.dump(string, file_object)
             if x.hour == 14 and x.minute >= 55:
                 while True:
-                    if contract in [i.contract for i in ib.positions()]:
+                    if contract in [i.contract for i in ib.positions()] or contract in [j.contract for j in ib.openTrades()]: # check for open positions and orders
                         close_position(1)  # closes all positions
-                        ib.sleep(5) # wait and check again
+                        ib.sleep(10) # wait and check again
                     else:
                         break
 
