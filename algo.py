@@ -129,11 +129,14 @@ def place_oca_orders(contract, order1, order2):
 
 
 def close_position(percent):  # closes all positions
-    pos = util.df(ib.positions())
-    if len(ib.openOrders()) > 0:  # cancel all pending orders
+    # cancel all pending orders
+    if len(ib.openOrders()) > 0:
         for order in ib.openOrders():
             ib.cancelOrder(order)
             ib.sleep(0)
+            print("cancelling: " + order)
+    # close all postions
+    pos = util.df(ib.positions())
     if len(pos) > 0:
         for q in pos.index:
             if 'SPY' == getattr(pos.contract[q], 'symbol'):
@@ -148,6 +151,7 @@ def close_position(percent):  # closes all positions
                 market_order = MarketOrder(direction, round(abs(pos.position[q]) * percent))
                 ib.placeOrder(contract, market_order)
                 ib.sleep(0)
+                print("closing open positions for " + contract.symbol)
 
 
 def close_single_position(closing_symbol):
@@ -1171,6 +1175,16 @@ last_trade_loop_time = datetime.datetime.now()
 
 global loop_count
 
+while True:
+    time = datetime.datetime.now()
+    if time.hour == 8:
+        if time.minute >= 31:
+            break
+    else:
+        break
+    ib.sleep(3)
+    print("waiting for 8:31")
+
 
 # loop_count = 0
 def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event listener
@@ -1199,6 +1213,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             open_trades = ib.openTrades()
             df_open_trades = util.df(open_trades)
             # print(df_open_trades)
+
             # check if a close all command has been issued
             outside_command_path = "json/" + "outside_command.json"
             with open(outside_command_path, 'r') as openfile:
@@ -1229,6 +1244,23 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 with open(path, 'w') as file_object:
                     json.dump(string, file_object)
 
+            # close all open orders and positions at the end of the day.
+            if x.hour == 14 and x.minute >= 55:
+                    # while True:
+                    #     if len(ib.positions()) > 0 or len(ib.openTrades()) > 0:
+                    #         print("open contracts found, call close_position()")
+                    #         close_position(1)  # closes all positions
+                    #         ib.sleep(10)  # wait and check again
+                    #     else:
+                    #         break
+                    close_position(1)  # closes all positions
+                    ib.sleep(10)  # wait and check again
+                    close_position(1)
+                    print("closed all positions at 2:55")
+                    print("stopping algo")
+                    ib.disconnect()
+                    quit(0)
+
             pnl = ib.pnl()
 
             index_count = 0  # doesn't affect trading logic, just controls a print statement
@@ -1252,6 +1284,22 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 bar_low = df.loc[index].low
                 last_check_minute = df.loc[index].set_time_vwap
                 contract = df.loc[index].contract
+
+                # close all open orders and positions at the end of the day.
+                if x.hour == 14 and x.minute >= 55:
+                    while True:
+                        final_positions = ib.positions()
+                        final_open_trades = ib.openTrades()
+                        if contract in [i.contract for i in final_positions] or contract in [j.contract for j in final_open_trades]:  # check for open positions and orders
+                            print("open contracts found, call close_position()")
+                            close_position(1)  # closes all positions
+                            ib.sleep(10)  # wait and check again
+                        else:
+                            break
+                    print("closed all positions at 2:55")
+                    print("stopping algo")
+                    ib.disconnect()
+                    quit(0)
 
                 outside_command_path = "json/" + "risk.json"
                 with open(outside_command_path, 'r') as openfile:
@@ -1748,18 +1796,6 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             #     with open(path, 'w') as file_object:
             #         string = ib.reqPnL(account)
             #         json.dump(string, file_object)
-            if x.hour == 14 and x.minute >= 55:
-                while True:
-                    if contract in [i.contract for i in ib.positions()] or contract in [j.contract for j in ib.openTrades()]: # check for open positions and orders
-                        close_position(1)  # closes all positions
-                        ib.sleep(10) # wait and check again
-                    else:
-                        break
-
-                print("closed all positions at 2:55")
-                print("stopping algo")
-                ib.disconnect()
-                quit(0)
             # print("loop : " + str(datetime.datetime.now() - x))
             # ib.sleep(3)
         # except:
