@@ -1525,12 +1525,14 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             if qty_close > 0:
                                 df.loc[symbol].in_trade = "up"
                                 action = "SELL"
-                                price1 = round(avg_cost + (atr * 2), 2)  # take profit
+                                # price1 = round(avg_cost + (atr * 2), 2)  # take profit
+                                price1 = round(avg_cost + abs(avg_cost - df.loc[symbol].wick_low), 2)  # take profit
                                 price2 = round(df.loc[symbol].wick_low, 2)  # stop loss
                             if qty_close < 0:
                                 df.loc[symbol].in_trade = "dn"
                                 action = "BUY"
-                                price1 = round(avg_cost - (atr * 2), 2)  # take profit
+                                # price1 = round(avg_cost - (atr * 2), 2)  # take profit
+                                price1 = round(avg_cost - abs(avg_cost - df.loc[symbol].wick_high), 2)  # take profit
                                 price2 = round(df.loc[symbol].wick_high, 2)  # stop loss
                             print(symbol, "Opening Take Profit and Stop Loss")
                             print(avg_cost, action, price1, price2, )
