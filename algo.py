@@ -590,7 +590,7 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                            'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3',
                            'set_time_vwap_per', 'atr_count', 'set_time_atr', 'ticker_open', 'open', 'high', 'low', 'signal', 'in_trade', 'adx_signal',
-                           'adx_dict', 'calculable', 'tradeable', 'wick_signal', 'wick_high', 'wick_low'])
+                           'adx_dict', 'calculable', 'tradeable', 'wick_signal', 'wick_high', 'wick_low', 'wick_open'])
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
@@ -664,9 +664,11 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
         if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr*2:
             wick_string = "bull wick possible"
             df.loc[symbol].wick_high = df_bars.iloc[-1].high # update these highs and lows only when conditions are present. these values are used for stop loss
+            df.loc[symbol].wick_open = df_bars.iloc[-1].open
         if df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr*2:
             wick_string = "bear wick possible"
             df.loc[symbol].wick_low = df_bars.iloc[-1].low
+            df.loc[symbol].wick_open = df_bars.iloc[-1].open
         if df_bars.iloc[-1].high - df_bars.iloc[-1].open > atr*2 and df_bars.iloc[-1].open - df_bars.iloc[-1].low > atr*2:
             wick_string = "bull/bear wick possible"
             df.loc[symbol].wick_high = df_bars.iloc[-1].high
@@ -1544,6 +1546,10 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                                 action = "SELL"
                                 price1 = round(df.loc[symbol].wick_high, 2)  # take profit
                                 price2 = round(avg_cost - abs(df.loc[symbol].wick_high - avg_cost), 2)  # stop loss
+                                if avg_cost < df.loc[symbol].wick_open:
+                                    risk_reward = abs(df.loc[symbol].wick_open - df.loc[symbol].wick_high)
+                                    price1 = round(avg_cost + risk_reward, 2)  # take profit
+                                    price2 = round(avg_cost - risk_reward, 2)  # stop loss
                                 # price1 = round(avg_cost + (atr * 2), 2)  # take profit
                                 # price1 = round(avg_cost + abs(avg_cost - df.loc[symbol].wick_low), 2)  # take profit
                                 # price2 = round(df.loc[symbol].wick_low, 2)  # stop loss
@@ -1551,7 +1557,11 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                                 df.loc[symbol].in_trade = "dn"
                                 action = "BUY"
                                 price1 = round(df.loc[symbol].wick_low, 2)  # take profit
-                                price2 = round(avg_cost - abs(avg_cost + df.loc[symbol].wick_low), 2)  # stop loss
+                                price2 = round(avg_cost + abs(avg_cost - df.loc[symbol].wick_low), 2)  # stop loss
+                                if avg_cost > df.loc[symbol].wick_open:
+                                    risk_reward = abs(df.loc[symbol].wick_open - df.loc[symbol].wick_low)
+                                    price1 = round(avg_cost - risk_reward, 2)  # take profit
+                                    price2 = round(avg_cost + risk_reward, 2)  # stop loss
                                 # price1 = round(avg_cost - (atr * 2), 2)  # take profit
                                 # price1 = round(avg_cost - abs(avg_cost - df.loc[symbol].wick_high), 2)  # take profit
                                 # price2 = round(df.loc[symbol].wick_high, 2)  # stop loss
