@@ -590,7 +590,7 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                            'previous_bar_high', 'previous_bar_low', 'symbol', 'pnl', 'direction', 'contract', 'sum_percent',
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3',
                            'set_time_vwap_per', 'atr_count', 'set_time_atr', 'ticker_open', 'open', 'high', 'low', 'signal', 'in_trade', 'adx_signal',
-                           'adx_dict', 'calculable', 'tradeable', 'wick_signal', 'wick_high', 'wick_low', 'wick_open'])
+                           'adx_dict', 'calculable', 'tradeable', 'wick_signal', 'wick_high', 'wick_low', 'wick_open', 'trade_bar'])
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
@@ -1438,6 +1438,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             market_order_to_open = MarketOrder("BUY", abs(qty))
                             ib.placeOrder(contract, market_order_to_open)
                             ib.sleep(0)
+                            df.loc[symbol].trade_bar = (x.hour * (60/time_frame) * time_frame) + (x.minute - x.minute % time_frame ) # convert to a minute value.  note the bar the trade happened on for advanced stop loss protections
 
                         if tradeable and df.loc[symbol].wick_signal == "bear wick possible" and mid - bar_low >= atr*2:
                             print(symbol, "Opening Sell Market Order - possible bear wick")
@@ -1445,6 +1446,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             market_order_to_open = MarketOrder("SELL", abs(qty))
                             ib.placeOrder(contract, market_order_to_open)
                             ib.sleep(0)
+                            df.loc[symbol].trade_bar = (x.hour * (60 / time_frame) * time_frame) + (x.minute - x.minute % time_frame)  # convert to a minute value, note the bar the trade happened on for advanced stop loss protections
 
                     # if tradeable and df.loc[
                     #     symbol].wick_signal == "bull wick possible":  # and (x.minute + 1) % time_frame == 0 and x.second >= 50:  # trend following
@@ -1572,7 +1574,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             place_oca_orders(contract, order1, order2)
 
                 # modify stop loss price for closing order
-                if 1 == 0 and contract in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
+                if contract in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
                     for trade in open_trades:
                         if trade.contract.symbol == symbol:
                             # try:
@@ -1584,28 +1586,29 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             # except Exception as error:
                             #     print(error)
                             # print(symbol, (datetime.datetime.utcnow() - trade.log[0].time).total_seconds())
-                            if (datetime.datetime.now(timezone.utc) - trade.log[
-                                0].time).total_seconds() > 10:  # don't modify an order too quickly, let the bars update after entry
-                                if trade.order.orderType == "LMT" and trade.order.action == "BUY":
-                                    if trade.order.lmtPrice != round(bar_open - atr, 2):
-                                        trade.order.lmtPrice = round(bar_open - atr, 2)
-                                        ib.placeOrder(contract, trade.order)
-                                        print(str(symbol) + " limit price changed to " + str(round(bar_open + atr, 2)))
-                                if trade.order.orderType == "LMT" and trade.order.action == "SELL":
-                                    if trade.order.lmtPrice != round(bar_open + atr, 2):
-                                        trade.order.lmtPrice = round(bar_open + atr, 2)
-                                        ib.placeOrder(contract, trade.order)
-                                        print(str(symbol) + " limit price changed to " + str(round(bar_open - atr, 2)))
-                                # if trade.order.orderType == "STP" and trade.order.action == "BUY":
-                                #     if trade.order.auxPrice != round(bar_open + atr, 2):
-                                #         trade.order.auxPrice = round(bar_open + atr, 2)
-                                #         ib.placeOrder(contract, trade.order)
-                                #         print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open + atr, 2)))
-                                # if trade.order.orderType == "STP" and trade.order.action == "SELL":
-                                #     if trade.order.auxPrice != round(bar_open - atr, 2):
-                                #         trade.order.auxPrice = round(bar_open - atr, 2)
-                                #         ib.placeOrder(contract, trade.order)
-                                #         print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open - atr, 2)))
+                            # if (datetime.datetime.now(timezone.utc) - trade.log[0].time).total_seconds() > 10:  # don't modify an order too quickly, let the bars update after entry
+                            if df.loc[symbol].trade_bar != "order_modified":
+                                if (x.hour * (60 / time_frame) * time_frame) + x.minute > df.loc[symbol].trade_bar + time_frame: # wait for one full bar after order entry to update orders.
+                                    if trade.order.orderType == "LMT" and trade.order.action == "BUY":
+                                        if trade.order.lmtPrice != round(bar_open - atr, 2):
+                                            trade.order.lmtPrice = round(bar_open - atr, 2)
+                                            ib.placeOrder(contract, trade.order)
+                                            print(str(symbol) + " limit price changed to " + str(round(bar_open + atr, 2)))
+                                    if trade.order.orderType == "LMT" and trade.order.action == "SELL":
+                                        if trade.order.lmtPrice != round(bar_open + atr, 2):
+                                            trade.order.lmtPrice = round(bar_open + atr, 2)
+                                            ib.placeOrder(contract, trade.order)
+                                            print(str(symbol) + " limit price changed to " + str(round(bar_open - atr, 2)))
+                                    # if trade.order.orderType == "STP" and trade.order.action == "BUY":
+                                    #     if trade.order.auxPrice != round(bar_open + atr, 2):
+                                    #         trade.order.auxPrice = round(bar_open + atr, 2)
+                                    #         ib.placeOrder(contract, trade.order)
+                                    #         print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open + atr, 2)))
+                                    # if trade.order.orderType == "STP" and trade.order.action == "SELL":
+                                    #     if trade.order.auxPrice != round(bar_open - atr, 2):
+                                    #         trade.order.auxPrice = round(bar_open - atr, 2)
+                                    #         ib.placeOrder(contract, trade.order)
+                                    #         print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open - atr, 2)))
 
                 ##############################################################################################################
                 """
