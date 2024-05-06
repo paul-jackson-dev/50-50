@@ -127,6 +127,19 @@ def place_oca_orders(contract, order1, order2):
     #     # ib.cancelHistoricalData(bars)
     # # nest_asyncio.apply(ib.sleep(1))
 
+def log(log_string):
+    print(log_string)
+    path = "json/" + "log.json"
+    with open(path, 'r') as openfile:
+        original_string = json.load(openfile)
+
+    if log_string == "clearing log":
+        new_string = ""
+    else:
+        new_string = original_string + '  -----  ' + log_string
+
+    with open(path, 'w') as file_object:
+        json.dump(new_string, file_object)
 
 def close_position(percent):  # closes all positions
     # cancel all pending orders
@@ -562,6 +575,8 @@ path = "json/" + "close.json"
 with open(path, 'w') as file_object:
     string = ""
     json.dump(string, file_object)
+
+log("clearing log")
 
 # list = []
 # with open(path, 'w') as file_object:  # open the file in write mode
@@ -1258,8 +1273,8 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                     close_position(1)  # closes all positions
                     ib.sleep(10)  # wait and check again
                     close_position(1)
-                    print("closed all positions at 2:55")
-                    print("stopping algo")
+                    log("closed all positions at 2:55")
+                    log("stopping algo")
                     ib.disconnect()
                     quit(0)
 
@@ -1288,20 +1303,20 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 contract = df.loc[index].contract
 
                 # close all open orders and positions at the end of the day.
-                if x.hour == 14 and x.minute >= 55:
-                    while True:
-                        final_positions = ib.positions()
-                        final_open_trades = ib.openTrades()
-                        if contract in [i.contract for i in final_positions] or contract in [j.contract for j in final_open_trades]:  # check for open positions and orders
-                            print("open contracts found, call close_position()")
-                            close_position(1)  # closes all positions
-                            ib.sleep(10)  # wait and check again
-                        else:
-                            break
-                    print("closed all positions at 2:55")
-                    print("stopping algo")
-                    ib.disconnect()
-                    quit(0)
+                # if x.hour == 14 and x.minute >= 55:
+                #     while True:
+                #         final_positions = ib.positions()
+                #         final_open_trades = ib.openTrades()
+                #         if contract in [i.contract for i in final_positions] or contract in [j.contract for j in final_open_trades]:  # check for open positions and orders
+                #             print("open contracts found, call close_position()")
+                #             close_position(1)  # closes all positions
+                #             ib.sleep(10)  # wait and check again
+                #         else:
+                #             break
+                #     print("closed all positions at 2:55")
+                #     print("stopping algo")
+                #     ib.disconnect()
+                #     quit(0)
 
                 outside_command_path = "json/" + "risk.json"
                 with open(outside_command_path, 'r') as openfile:
@@ -1431,7 +1446,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 if contract not in [i.contract for i in positions] and contract not in [j.contract for j in open_trades]:
                     df.loc[symbol].in_trade = "none"  # set to none since no positions/orders and waiting for a signal
                     # if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
-                    if (x.minute + 1) % time_frame == 0 and x.second >= 54:  # check if we are near the end of the bar
+                    if (x.minute + 1) % time_frame == 0 and x.second >= 55:  # check if we are near the end of the bar
                         if tradeable and df.loc[symbol].wick_signal == "bull wick possible" and bar_high - mid >= atr*2: # check for signal and pull back
                             print(symbol, "Opening Buy Market Order - possible bull wick")
                             qty = int(round(risk / (bar_high - mid), 0))
@@ -1588,7 +1603,8 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             # print(symbol, (datetime.datetime.utcnow() - trade.log[0].time).total_seconds())
                             # if (datetime.datetime.now(timezone.utc) - trade.log[0].time).total_seconds() > 10:  # don't modify an order too quickly, let the bars update after entry
                             if df.loc[symbol].trade_bar != "order_modified":
-                                if (x.hour * (60 / time_frame) * time_frame) + x.minute > df.loc[symbol].trade_bar + time_frame: # wait for one full bar after order entry to update orders.
+                                if (x.hour * (60 / time_frame) * time_frame) + x.minute >= df.loc[symbol].trade_bar + (time_frame*2): # wait for one full bar after order entry to update orders.
+                                    log(str((x.hour * (60 / time_frame) * time_frame) + x.minute) + " " + str(df.loc[symbol].trade_bar + (time_frame*2)))
                                     for po in positions:
                                         if po.contract.symbol == symbol:
                                             avg_cost = po.avgCost # get the average cost for the open position
