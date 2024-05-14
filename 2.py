@@ -1453,7 +1453,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                         if tradeable and bar_high - open > atr*2 and mid > bar_open + (atr*1.5) and bar_high - mid < atr:  # check for bar that pushed and didn't pull back too much
                             df.loc[symbol].wick_open = bar_open # move this to onbarupdatenew eventually
                             print(symbol, "Opening Buy Market Order")
-                            qty = int(round(risk / (bar_high - mid), 0))
+                            qty = int(round(risk / (mid - bar_open), 0))
                             market_order_to_open = MarketOrder("BUY", abs(qty))
                             ib.placeOrder(contract, market_order_to_open)
                             ib.sleep(0)
@@ -1463,7 +1463,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                         if tradeable and open - bar_low > atr*2 and mid < bar_open - (atr*1.5) and mid - bar_low < atr:  # check for bar that pushed and didn't pull back too much
                             df.loc[symbol].wick_open = bar_open # move this to onbarupdatenew eventually
                             print(symbol, "Opening Sell Market Order")
-                            qty = int(round(risk / (mid - bar_low), 0))
+                            qty = int(round(risk / (bar_open - mid), 0))
                             market_order_to_open = MarketOrder("SELL", abs(qty))
                             ib.placeOrder(contract, market_order_to_open)
                             ib.sleep(0)
@@ -1856,7 +1856,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             for fill in ib.fills():
                 commission += fill.commissionReport.commission
             # print("commission", round(commission, 2) * -1)
-            print("profit:", profit_sum, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss)
+            print("profit:", profit_sum, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss, "time: " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
 
             # dump profit/loss to a .json file at fixed points of the day for review.
             if x.hour == 8 and x.minute == 45 and x.second <= 10 or x.hour == 9 and x.minute == 0 and x.second <= 10:
