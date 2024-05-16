@@ -1852,7 +1852,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             for fill in ib.fills():
                 commission += fill.commissionReport.commission
             # print("commission", round(commission, 2) * -1)
-            print("profit:", profit_sum, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss, "time: " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
+            print("profit:", profit_sum, "trading:", round(profit_sum + commission, 2) * -1, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss, "time: " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
 
             # dump profit/loss to a .json file at fixed points of the day for review.
             if x.hour == 8 and x.minute == 45 and x.second <= 10 or x.hour == 9 and x.minute == 0 and x.second <= 10:

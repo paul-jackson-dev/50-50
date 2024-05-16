@@ -558,7 +558,7 @@ symbols = ["NVDA","TSLA","AMD","AAPL","SMCI","MSFT","META","AMZN","AVGO","GOOGL"
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['MSFT']
 # symbols = ['TSLA']
-time_frame = 5
+time_frame = 1
 
 # symbols = ['TSLA']
 
@@ -1450,7 +1450,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                     # if ((x.minute - (time_frame - 1)) % time_frame == 0 and x.second > 50) or (x.minute % time_frame == 0 and x.second <= 3):  # check for signal late in the bar or v early in the current bar.
                     if (x.minute + 1) % time_frame == 0 and x.second >= 55:  # check if we are near the end of the bar
                         # if tradeable and df.loc[symbol].wick_signal == "bull wick possible" and bar_high - mid >= atr*2: # check for signal and pull back
-                        if tradeable and bar_high - open > atr*2 and mid > bar_open + (atr*1.5) and bar_high - mid < atr:  # check for bar that pushed and didn't pull back too much
+                        if tradeable and bar_high - bar_open > atr*2 and mid > bar_open + (atr*1.5) and bar_high - mid < atr:  # check for bar that pushed and didn't pull back too much
                             df.loc[symbol].wick_open = bar_open # move this to onbarupdatenew eventually
                             print(symbol, "Opening Buy Market Order")
                             qty = int(round(risk / (mid - bar_open), 0))
@@ -1460,7 +1460,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             df.loc[symbol].trade_bar = (x.hour * (60/time_frame) * time_frame) + (x.minute - x.minute % time_frame ) # convert to a minute value.  note the bar the trade happened on for advanced stop loss protections
 
                         #if tradeable and df.loc[symbol].wick_signal == "bear wick possible" and mid - bar_low >= atr*2:
-                        if tradeable and open - bar_low > atr*2 and mid < bar_open - (atr*1.5) and mid - bar_low < atr:  # check for bar that pushed and didn't pull back too much
+                        if tradeable and bar_open - bar_low > atr*2 and mid < bar_open - (atr*1.5) and mid - bar_low < atr:  # check for bar that pushed and didn't pull back too much
                             df.loc[symbol].wick_open = bar_open # move this to onbarupdatenew eventually
                             print(symbol, "Opening Sell Market Order")
                             qty = int(round(risk / (bar_open - mid), 0))
@@ -1856,7 +1856,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             for fill in ib.fills():
                 commission += fill.commissionReport.commission
             # print("commission", round(commission, 2) * -1)
-            print("profit:", profit_sum, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss, "time: " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
+            print("profit:", profit_sum, "trading:", round(profit_sum + commission, 2) * -1, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss, "time: " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
 
             # dump profit/loss to a .json file at fixed points of the day for review.
             if x.hour == 8 and x.minute == 45 and x.second <= 10 or x.hour == 9 and x.minute == 0 and x.second <= 10:
