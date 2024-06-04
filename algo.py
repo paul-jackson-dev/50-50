@@ -608,9 +608,11 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3',
                            'set_time_vwap_per', 'atr_count', 'set_time_atr', 'ticker_open', 'open', 'high', 'low', 'signal', 'in_trade', 'adx_signal',
                            'adx_dict', 'calculable', 'tradeable', 'wick_signal', 'wick_high', 'wick_low', 'wick_open', 'trade_bar'])
+dict_spreads_percent = {}
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
+    dict_spreads_percent.update(new_dict)
     dict_spreads.update(new_dict)
 
 
@@ -878,26 +880,33 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
 
 def onPendingTickers(tickers):
     global df
+    global dict_spreads_percent
     global dict_spreads
     xx = datetime.datetime.now()
     # for t in tickers:
     #     print(str(t.contract.symbol) + " " + str(t.vwap))
     for t in tickers:
         symbol = t.contract.symbol
-        try:
-            spread = (t.ask - t.bid) / df.loc[symbol].atr  # convert to precent of atr
+        try: # record spread percent
+            spread_percent = (t.ask - t.bid) / df.loc[symbol].atr  # convert to precent of atr
+            if not math.isnan(spread_percent):
+                dict_spreads_percent[symbol].insert(0, spread_percent)  # add new spread at the top
+                if len(dict_spreads_percent[symbol]) > 5000:  # keep the last 1,000 ticks to get an average later
+                    del dict_spreads_percent[symbol][-1]  # delete oldest spread
+        except:
+            pass
+        try: # record raw spread
+            spread = (t.ask - t.bid)  # store raw spread
             if not math.isnan(spread):
                 dict_spreads[symbol].insert(0, spread)  # add new spread at the top
                 if len(dict_spreads[symbol]) > 5000:  # keep the last 1,000 ticks to get an average later
                     del dict_spreads[symbol][-1]  # delete oldest spread
-                # if symbol == "TSLA":
-                # print(dict_spreads[symbol])
-                # df.loc[symbol]["spread %"] = mean(dict_spreads[symbol])
         except:
             pass
         mid = (t.ask + t.bid) / 2
         df.loc[symbol].mid_price = mid
-        df.loc[symbol].spread = t.ask - t.bid
+        # df.loc[symbol].spread = t.ask - t.bid
+        df.loc[symbol].spread = mean(dict_spreads[symbol])
         if 1 == 0 and df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
             # get previous bars closing vwap and store vwap at time_frame in case we want to reference it later
             if xx.minute % time_frame == 0 and xx.minute != df.loc[symbol].set_time_vwap:
@@ -1389,7 +1398,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                     df.loc[contract.symbol].calculable = "no"
 
                 try:
-                    df.loc[symbol]["spread %"] = mean(dict_spreads[symbol])  # spreads are saved as a %, spread/atr
+                    df.loc[symbol]["spread %"] = mean(dict_spreads_percent[symbol])  # spreads are saved as a %, spread/atr
                 except:
                     pass
 
