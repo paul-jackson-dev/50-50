@@ -1378,6 +1378,9 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                     df.loc[symbol].tradeable = "yes"
                 else:
                     df.loc[symbol].tradeable = "no"
+                if x.hour == 14 and x.minute > 50: # don't open new trades too near close
+                    tradeable = False
+                    df.loc[symbol].tradeable = "no"
                 # tradeable_count -= 1
 
                 if df.loc[symbol]["spread %"] < .25 or tradeable:  # help limit resource use by only calculating adx on tradeable contracts
@@ -1528,13 +1531,15 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and df.loc[symbol].wick_signal == "none":
                     for trade in open_trades:
                         if trade.contract.symbol == symbol:
-                            if trade.orderStatus.status != "PendingCancel":
-                                ib.cancelOrder(trade.order)
-                                # print(trade.order)
-                                # print(trade.orderStatus.status == "PendingCancel")
-                                print(symbol + ": cancelling order")
-                            else:
-                                print(symbol + ": pending cancellation")
+                            ib.cancelOrder(trade.order)
+                            print(symbol + ": cancelling order")
+                            # if trade.orderStatus.status != "PendingCancel":
+                            #     ib.cancelOrder(trade.order)
+                            #     # print(trade.order)
+                            #     # print(trade.orderStatus.status == "PendingCancel")
+                            #     print(symbol + ": cancelling order")
+                            # else:
+                            #     print(symbol + ": pending cancellation")
 
                 # modify an opening orders price
                 if 1==0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in ib.openTrades()]:
@@ -1852,7 +1857,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             for fill in ib.fills():
                 commission += fill.commissionReport.commission
             # print("commission", round(commission, 2) * -1)
-            print("profit:", profit_sum, "trading:", round(profit_sum + commission, 2) * -1, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss, "time: " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
+            print("profit:", profit_sum, "commission:", round(commission, 2) * -1, "win:", win, "loss:", loss, "time: " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
 
             # dump profit/loss to a .json file at fixed points of the day for review.
             if x.hour == 8 and x.minute == 45 and x.second <= 10 or x.hour == 9 and x.minute == 0 and x.second <= 10:
