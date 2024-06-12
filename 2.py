@@ -80,6 +80,7 @@ def place_oca_orders(contract, order1, order2):
     ib.sleep(0)
     ib.placeOrder(contract, orders[1])
     print("order 2 submitted")
+    df.loc[contract.symbol].closing_orders_set = True
     # for order in orders:
     #     print("here")
     #     print(order)
@@ -556,7 +557,7 @@ symbols = ["NVDA","TSLA","AMD","AAPL","SMCI","MSFT","META","AMZN","AVGO","GOOGL"
            "IBM","ACN","MS","C",]
 # symbols = ['TSLA', 'AAPL', 'MSFT', 'NVDA', 'AMZN']
 # symbols = ['TSLA', 'MSFT']
-# symbols = ['MSFT']
+# symbols = ['AMD']
 # symbols = ['TSLA']
 time_frame = 1
 
@@ -608,12 +609,13 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                            'banned', 'vwap_o', 'vwap_h', 'vwap_l', 'stairs', 'vwap_per_1', 'vwap_per_2', 'vwap_per_3',
                            'set_time_vwap_per', 'atr_count', 'set_time_atr', 'ticker_open', 'open', 'high', 'low', 'signal', 'in_trade', 'adx_signal',
                            'adx_dict', 'calculable', 'tradeable', 'wick_signal', 'wick_high', 'wick_low', 'wick_open', 'trade_bar',
-                           'last_stp_price', 'last_lmt_price'])
+                           'last_stp_price', 'last_lmt_price', 'closing_orders_set'])
 dict_spreads_percent = {}
 dict_spreads = {}
 for c in contracts:
     new_dict = {c.symbol: []}
-    dict_spreads_percent.update(new_dict)
+    percent_new_dict = {c.symbol: []}
+    dict_spreads_percent.update(percent_new_dict)
     dict_spreads.update(new_dict)
 
 
@@ -894,6 +896,7 @@ def onPendingTickers(tickers):
                 dict_spreads_percent[symbol].insert(0, spread_percent)  # add new spread at the top
                 if len(dict_spreads_percent[symbol]) > 5000:  # keep the last 1,000 ticks to get an average later
                     del dict_spreads_percent[symbol][-1]  # delete oldest spread
+            df.loc[symbol]["spread %"] = round(mean(dict_spreads_percent[symbol]), 2)
         except:
             pass
         try: # record raw spread
@@ -902,12 +905,14 @@ def onPendingTickers(tickers):
                 dict_spreads[symbol].insert(0, spread)  # add new spread at the top
                 if len(dict_spreads[symbol]) > 5000:  # keep the last 1,000 ticks to get an average later
                     del dict_spreads[symbol][-1]  # delete oldest spread
+            df.loc[symbol]["spread"] = round(mean(dict_spreads[symbol]), 2)
         except:
             pass
         mid = (t.ask + t.bid) / 2
         df.loc[symbol].mid_price = mid
         #df.loc[symbol].spread = t.ask - t.bid
-        df.loc[symbol].spread = mean(dict_spreads[symbol])
+        # df.loc[symbol]["spread %"] = round(mean(dict_spreads_percent[symbol]), 2)
+        # df.loc[symbol].spread = round(mean(dict_spreads[symbol]), 2)
         if 1 == 0 and df.loc[symbol].calculable == "yes":  # conserve resources and only calculate ADX for top symbols
             # get previous bars closing vwap and store vwap at time_frame in case we want to reference it later
             if xx.minute % time_frame == 0 and xx.minute != df.loc[symbol].set_time_vwap:
@@ -1176,6 +1181,11 @@ print("historical bars connected, waiting for open")
 #
 # market_order = MarketOrder('SELL', 10)
 # trade = ib.placeOrder(contract, market_order)
+# order1 = LimitOrder("BUY", abs(1000), 150)
+# ib.placeOrder(contract, order1)
+# order1 = LimitOrder("BUY", abs(1000), 150)
+# order2 = StopOrder("BUY", abs(1000), 175)
+# place_oca_orders(contract, order1, order2)
 # # Data to be written
 # #ib.disconnect()
 # #quit(0)
@@ -1397,10 +1407,11 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 else:
                     df.loc[contract.symbol].calculable = "no"
 
-                try:
-                    df.loc[symbol]["spread %"] = mean(dict_spreads_percent[symbol])  # spreads are saved as a %, spread/atr
-                except:
-                    pass
+                # try:
+                #     df.loc[symbol]["spread %"] = round(mean(dict_spreads_percent[symbol]),2)  # spreads are saved as a %, spread/atr
+                #     df.loc[symbol]["spread"] = round(mean(dict_spreads[symbol]), 2)
+                # except:
+                #     pass
 
                 # wait_for_timeframe()  # make sure the first bar of the day has passed
 
@@ -1474,6 +1485,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             ib.placeOrder(contract, market_order_to_open)
                             ib.sleep(0)
                             df.loc[symbol].trade_bar = (x.hour * (60/time_frame) * time_frame) + (x.minute - x.minute % time_frame ) # convert to a minute value.  note the bar the trade happened on for advanced stop loss protections
+                            df.loc[symbol].closing_orders_set = False
 
                         #if tradeable and df.loc[symbol].wick_signal == "bear wick possible" and mid - bar_low >= atr*2:
                         if tradeable and bar_open - bar_low > atr*2 and mid < bar_open - (atr*1.5) and mid - bar_low < atr:  # check for bar that pushed and didn't pull back too much
@@ -1484,6 +1496,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             ib.placeOrder(contract, market_order_to_open)
                             ib.sleep(0)
                             df.loc[symbol].trade_bar = (x.hour * (60 / time_frame) * time_frame) + (x.minute - x.minute % time_frame)  # convert to a minute value, note the bar the trade happened on for advanced stop loss protections
+                            df.loc[symbol].closing_orders_set = False
 
                     # if tradeable and df.loc[
                     #     symbol].wick_signal == "bull wick possible":  # and (x.minute + 1) % time_frame == 0 and x.second >= 50:  # trend following
@@ -1545,7 +1558,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 #             print(symbol + ": opening sell order")
 
                 # cancel an order that is no longer relevant
-                if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and df.loc[symbol].wick_signal == "none":
+                if 1== 0 and contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades] and df.loc[symbol].wick_signal == "none":
                     for trade in open_trades:
                         if trade.contract.symbol == symbol:
                             ib.cancelOrder(trade.order)
@@ -1687,14 +1700,14 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                                     #         trade.order.auxPrice = round(bar_open - atr, 2)
                                     #         ib.placeOrder(contract, trade.order)
                                     #         print(str(symbol) + " Stop Loss auxPrice changed to " + str(round(bar_open - atr, 2)))
-
                 # make sure a Stop Order wasn't cancelled because of a partial Limit Order fill
                 if contract in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
                     trade_count = 0
                     for trade in open_trades:
                         if trade.contract.symbol == symbol:
-                            trade_count += 1
-                    if trade_count != 2: # STP was cancelled due to partial fill
+                            if trade.order.orderType != "MKT": #ignore market orders
+                                trade_count += 1
+                    if trade_count == 1 and df.loc[symbol].closing_orders_set == True: # STP was cancelled due to partial fill
                         for position in positions:
                             if position.contract.symbol == symbol:
                                 updated_qty = position.position
@@ -1704,19 +1717,22 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                                 if updated_qty < 0:
                                     action = "BUY"
                                     price = round(df.loc[symbol].last_stp_price, 2)  # stop loss
-                                print(symbol, "Re-Opening Stop Loss with updated quantity")
+                                print(symbol, "Re-Opening Stop Loss with updated quantity", "Price:", price)
                                 order = StopOrder(action, abs(updated_qty), price)
                                 ib.placeOrder(contract, order)
 
                 # cancel any remaining orders if we aren't in a position
                 if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
+                    print("here1")
                     for order in open_trades:
+                        print("here2")
                         if order.contract.symbol == symbol:
+                            print("here3")
                             if order.order.orderType != "MKT": # don't cancel market orders that might have just been sent
-                                ib.cancelOrder(order)
+                                print("here4")
+                                ib.cancelOrder(order.order) #send the order and cancelOrder will get the Id
                                 ib.sleep(0)
-                                print(symbol, "cancelling: " + order)
-
+                                print(symbol, "cancelling: " + str(order))
                 ##############################################################################################################
                 """
                 # handle active positions
