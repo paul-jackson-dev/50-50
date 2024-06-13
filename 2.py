@@ -80,7 +80,7 @@ def place_oca_orders(contract, order1, order2):
     ib.sleep(0)
     ib.placeOrder(contract, orders[1])
     print("order 2 submitted")
-    df.loc[contract.symbol].closing_orders_set = True
+    df.loc[contract.symbol].closing_orders_set = "True"
     # for order in orders:
     #     print("here")
     #     print(order)
@@ -1485,7 +1485,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             ib.placeOrder(contract, market_order_to_open)
                             ib.sleep(0)
                             df.loc[symbol].trade_bar = (x.hour * (60/time_frame) * time_frame) + (x.minute - x.minute % time_frame ) # convert to a minute value.  note the bar the trade happened on for advanced stop loss protections
-                            df.loc[symbol].closing_orders_set = False
+                            df.loc[symbol].closing_orders_set = "False"
 
                         #if tradeable and df.loc[symbol].wick_signal == "bear wick possible" and mid - bar_low >= atr*2:
                         if tradeable and bar_open - bar_low > atr*2 and mid < bar_open - (atr*1.5) and mid - bar_low < atr:  # check for bar that pushed and didn't pull back too much
@@ -1496,7 +1496,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             ib.placeOrder(contract, market_order_to_open)
                             ib.sleep(0)
                             df.loc[symbol].trade_bar = (x.hour * (60 / time_frame) * time_frame) + (x.minute - x.minute % time_frame)  # convert to a minute value, note the bar the trade happened on for advanced stop loss protections
-                            df.loc[symbol].closing_orders_set = False
+                            df.loc[symbol].closing_orders_set = "False"
 
                     # if tradeable and df.loc[
                     #     symbol].wick_signal == "bull wick possible":  # and (x.minute + 1) % time_frame == 0 and x.second >= 50:  # trend following
@@ -1707,7 +1707,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                         if trade.contract.symbol == symbol:
                             if trade.order.orderType != "MKT": #ignore market orders
                                 trade_count += 1
-                    if trade_count == 1 and df.loc[symbol].closing_orders_set == True: # STP was cancelled due to partial fill
+                    if trade_count == 1 and df.loc[symbol].closing_orders_set == "Open": # STP was cancelled due to partial fill
                         for position in positions:
                             if position.contract.symbol == symbol:
                                 updated_qty = position.position
@@ -1717,9 +1717,12 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                                 if updated_qty < 0:
                                     action = "BUY"
                                     price = round(df.loc[symbol].last_stp_price, 2)  # stop loss
-                                print(symbol, "Re-Opening Stop Loss with updated quantity", "Price:", price)
+                                print(symbol, "Re-Opening Stop Loss with updated quantity:", updated_qty, "Price:", price)
                                 order = StopOrder(action, abs(updated_qty), price)
                                 ib.placeOrder(contract, order)
+                                df.loc[symbol].closing_orders_set = "True"
+                    if trade_count == 1 and df.loc[symbol].closing_orders_set == "True": # sometimes the stop is hit and another stop is opened too quickly, this adds an extra loop and gives the api time to update its records
+                        df.loc[symbol].closing_orders_set = "Open"
 
                 # cancel any remaining orders if we aren't in a position
                 if contract not in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
