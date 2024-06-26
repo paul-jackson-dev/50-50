@@ -145,12 +145,6 @@ def log(log_string):
         json.dump(new_string, file_object)
 
 def close_position(percent):  # closes all positions
-    # cancel all pending orders
-    if len(ib.openOrders()) > 0:
-        for order in ib.openOrders():
-            ib.cancelOrder(order)
-            ib.sleep(0)
-            print("cancelling: " + order)
     # close all postions
     pos = util.df(ib.positions())
     if len(pos) > 0:
@@ -168,6 +162,12 @@ def close_position(percent):  # closes all positions
                 ib.placeOrder(contract, market_order)
                 ib.sleep(0)
                 print("closing open positions for " + contract.symbol)
+    # cancel all pending orders
+    if len(ib.openOrders()) > 0:
+        for order in ib.openOrders():
+            ib.cancelOrder(order)
+            ib.sleep(0)
+            print("cancelling: " + str(order))
 
 
 def close_single_position(closing_symbol):
@@ -1085,7 +1085,7 @@ for contract in contracts:
     bars = ib.reqHistoricalData(
         contract,
         endDateTime='',
-        durationStr='10 D',
+        durationStr='1 M', #10 D for 1 min
         barSizeSetting=time_string,
         # barSizeSetting=str(time_frame) + ' min',
         # barSizeSetting='15 mins',
@@ -1392,7 +1392,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 # index_count += 1
 
                 tradeable = False
-                if df.loc[symbol]["spread %"] <= .20:
+                if df.loc[symbol]["spread %"] <= .10: # .20 for 1 min
                     tradeable = True
                     df.loc[symbol].tradeable = "yes"
                 else:
@@ -1471,10 +1471,12 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                 # if x.hour == 8:
                 #     print("waiting until 9am")
                 #     return
+
                 if x.hour == 8 and x.minute < 50:
                     pass
                 else:
-                    print("time past 8:50am, do not open new positions")
+                    if symbol == "TSLA":
+                        print("time past 8:50am, do not open new positions")
                     tradeable = False
 
                 ##############################################################################################################
@@ -1641,7 +1643,7 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
                             place_oca_orders(contract, order1, order2)
 
                 # modify stop loss price for closing order
-                if contract in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
+                if 1==0 and contract in [i.contract for i in positions] and contract in [j.contract for j in open_trades]:
                     for trade in open_trades:
                         if trade.contract.symbol == symbol:
                             # try:

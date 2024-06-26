@@ -145,12 +145,6 @@ def log(log_string):
         json.dump(new_string, file_object)
 
 def close_position(percent):  # closes all positions
-    # cancel all pending orders
-    if len(ib.openOrders()) > 0:
-        for order in ib.openOrders():
-            ib.cancelOrder(order)
-            ib.sleep(0)
-            print("cancelling: " + order)
     # close all postions
     pos = util.df(ib.positions())
     if len(pos) > 0:
@@ -168,6 +162,12 @@ def close_position(percent):  # closes all positions
                 ib.placeOrder(contract, market_order)
                 ib.sleep(0)
                 print("closing open positions for " + contract.symbol)
+    # cancel all pending orders
+    if len(ib.openOrders()) > 0:
+        for order in ib.openOrders():
+            ib.cancelOrder(order)
+            ib.sleep(0)
+            print("cancelling: " + str(order))
 
 
 def close_single_position(closing_symbol):
