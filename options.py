@@ -550,15 +550,16 @@ def record_time(hour, minute, second, percentage):
 #            'LRCX', 'TXN']
 # symbols = ['TSLA', 'AAPL', 'NVDA', 'MSFT', 'AMZN', 'AMD', 'META', 'GOOGL', 'XOM', 'NFLX', 'V', 'JPM', 'OXY', 'JNJ',
 #            'PYPL', 'CVX', 'BAC', 'INTC', 'CRM', 'WMT']
-symbols = ["NVDA","TSLA","AMD","AAPL","SMCI","MSFT","META","AMZN","AVGO","GOOGL","MU",
-           "ADBE","CMI","LLY","UNH","XOM","LIN","INTC","COST","CRM","NFLX","BA","V","PANW","JPM",
-           "ORCL","BAC","QCOM","MRK","CVX","PFE","GE","HD","DIS","AMAT","ABBV","UBER",
-           "BMY","WFC","PEP","MA","JNJ","LRCX","NKE","BKNG","CSCO","WMT","LULU","PYPL","TXN",
-           "IBM","ACN","MS","C",]
+# symbols = ["NVDA","TSLA","AMD","AAPL","SMCI","MSFT","META","AMZN","AVGO","GOOGL","MU",
+#            "ADBE","CMI","LLY","UNH","XOM","LIN","INTC","COST","CRM","NFLX","BA","V","PANW","JPM",
+#            "ORCL","BAC","QCOM","MRK","CVX","PFE","GE","HD","DIS","AMAT","ABBV","UBER",
+#            "BMY","WFC","PEP","MA","JNJ","LRCX","NKE","BKNG","CSCO","WMT","LULU","PYPL","TXN",
+#            "IBM","ACN","MS","C",]
 # symbols = ['TSLA', 'AAPL', 'MSFT', 'NVDA', 'AMZN']
 # symbols = ['TSLA', 'MSFT']
 # symbols = ['AMD']
 # symbols = ['TSLA']
+symbols = ['SPY']
 time_frame = 10
 
 # symbols = ['TSLA']
@@ -597,8 +598,13 @@ log("clearing log")
 #     with open(path, 'w') as file_object:  # open the file in write mode
 #         json.dump(string, file_object)
 
+#contracts = [Option(symbol, 'SMART', 'USD') for symbol in symbols]
+# just_today = datetime.datetime.now()
+# just_today = str(just_today.year) + str('{:02d}'.format(just_today.month)) + str('{:02d}'.format(just_today.day)) #format for YYYYMMDD
+# contracts = [Option(symbol=symbol, lastTradeDateOrContractMonth=just_today, exchange='SMART', currency='USD') for symbol in symbols]
 contracts = [Stock(symbol, 'SMART', 'USD') for symbol in symbols]
 ib.qualifyContracts(*contracts)
+
 # last_lengths = {}
 
 #################################################################################################################
@@ -629,7 +635,6 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
     global df
     contract = bars.contract
     symbol = bars.contract.symbol
-
     # # cancel subscriptions we don't need
     # bar_timeframe = int(''.join(filter(str.isdigit, bars.barSizeSetting)))  # search string '5 mins' for int
     # # print(bar_timeframe == time_frame)
@@ -890,6 +895,8 @@ def onPendingTickers(tickers):
     #     print(str(t.contract.symbol) + " " + str(t.vwap))
     for t in tickers:
         symbol = t.contract.symbol
+        #157
+        print(t)
         try: # record spread percent
             spread_percent = (t.ask - t.bid) / df.loc[symbol].atr  # convert to precent of atr
             if not math.isnan(spread_percent):
@@ -994,44 +1001,22 @@ def onPendingTickers(tickers):
     # print("--------------------------")
 
 
-########### delete after testing is done ###################
-# adx_test_path = "json/" + "adx_test.json"
-# with open(adx_test_path, 'r') as openfile:
-#     string = json.load(openfile)
-#     adx_df = pd.read_json(string)
-#     print(adx_df.head(15))
-#     index_of_bottom = None  # find the most recent bottom if it exists
-#     for index, row in adx_df.iloc[:10].iterrows():  # look backwards to find bottom.
-#         if adx_df.iloc[index].ADX_14 < adx_df.iloc[index + 1].ADX_14:
-#             print(index)
-#             print(adx_df.iloc[index].ADX_14)
-#             index_of_bottom = index
-#             break
-#     if index_of_bottom:  # bottom is recent
-#         if adx_df.iloc[index_of_bottom].ADX_14 < 25:  # bottom is pretty low
-#             if adx_df.iloc[0].ADX_14 - adx_df.iloc[1].ADX_14 >= 1:  # last adx change was pretty strong
-#                 if adx_df.iloc[1].ADX_14 - adx_df.iloc[2].ADX_14 >= .5 and adx_df.iloc[2].ADX_14 - adx_df.iloc[3].ADX_14 >= .5:  # the two before that were building strength
-#                     print("signal")
+# print(contracts)
+# for contract in contracts:
+#     ib.sleep(.2)  # to prevent rate limiting
+#     ib.reqMktData(contract, '13', False, False)
+#     print(contract.symbol + " connected")
+#     # df1 = pd.DataFrame(data={'symbol': [contract.symbol], 'spread': [10], 'vwap': [1]})
+#     # df1 = pd.DataFrame( index = [contract.symbol],data={'spread': [10], 'vwap': [1]})
+#     # df = pd.concat([df, df1], ignore_index=True)
+#     # ticker = ib.reqTickers(contract)
+# tickers = ib.reqTickers(*contracts)
+# print(tickers)
+# # ib.sleep(10)
 #
-#     ib.disconnect()
-#     quit(0)
-########### delete after testing is done ###################
-
-for contract in contracts:
-    ib.sleep(.2)  # to prevent rate limiting
-    ib.reqMktData(contract, '233', False, False)
-    print(contract.symbol + " connected")
-    # df1 = pd.DataFrame(data={'symbol': [contract.symbol], 'spread': [10], 'vwap': [1]})
-    # df1 = pd.DataFrame( index = [contract.symbol],data={'spread': [10], 'vwap': [1]})
-    # df = pd.concat([df, df1], ignore_index=True)
-    # ticker = ib.reqTickers(contract)
-tickers = ib.reqTickers(*contracts)
-
-# ib.sleep(10)
-
-# onPendingTickers(tickers)
-
-ib.pendingTickersEvent += onPendingTickers
+# # onPendingTickers(tickers)
+#
+# ib.pendingTickersEvent += onPendingTickers
 # print(ticker[0].contract.symbol)
 # print(ticker)
 # print(ticker[0].vwap)
@@ -1071,7 +1056,7 @@ ib.pendingTickersEvent += onPendingTickers
 #
 movement_dict = {}
 
-print("tickers connected, requesting historical bars")
+#print("tickers connected, requesting historical bars")
 
 x = datetime.datetime.now()
 # # Request Streaming bars
@@ -1117,6 +1102,47 @@ for contract in contracts:
     df.loc[contract.symbol].traded = False
 
 print("historical bars connected, waiting for open")
+last_price = 0
+while True:
+    if bars:
+        # print(bars[-1].close)
+        last_price = bars[-1].close
+        break
+# print(last_price)
+contract = contracts[0] # contract will be SPY or whatever is listed in symbols
+chains = ib.reqSecDefOptParams(contract.symbol, '', contract.secType, contract.conId)
+#util.df(chains)
+chain = next(c for c in chains if c.tradingClass == contract.symbol and c.exchange == 'SMART')
+strikes = [strike for strike in chain.strikes
+        if strike % 1 == 0
+        and last_price - 1 < strike < last_price + 1]
+expirations = sorted(exp for exp in chain.expirations)[:3]
+rights = ['P', 'C']
+contracts = [Option(contract.symbol, expirations[0], strike, right, 'SMART', tradingClass=contract.symbol) # just grab the 0DTE   - expiration
+        for right in rights
+        #for expiration in expirations # we just want 0DTE
+        for strike in strikes]
+contracts = ib.qualifyContracts(*contracts)
+print("found",len(contracts),"contracts")
+# print(util.df(contracts))
+
+for contract in contracts:
+    ib.sleep(.2)  # to prevent rate limiting
+    ib.reqMktData(contract, '', False, False)
+    print(contract.symbol + " connected")
+    ticker = ib.reqTickers(contract)
+    # break
+    #ib.cancelMktData(contract)
+
+# tickers = ib.reqTickers(*contracts)
+# print(ticker[0].modelGreeks.delta)
+# ib.sleep(60)
+# onPendingTickers(ticker)
+# ib.disconnect()
+# quit(0)
+ib.pendingTickersEvent += onPendingTickers
+
+
     # if contract.symbol == "MSFT":
     #     market_order = MarketOrder('SELL', 10)
     #     trade = ib.placeOrder(contract, market_order)
