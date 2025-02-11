@@ -11,6 +11,7 @@ from statistics import mean
 from statistics import median
 import winsound
 import traceback
+import csv
 
 
 # pnl_profit = pnl_profit(pnl_profit=False) #pickle as an object
@@ -143,6 +144,9 @@ def log(log_string):
 
     with open(path, 'w') as file_object:
         json.dump(new_string, file_object)
+
+def log_csv(df):
+    df.to_csv('json/log.csv', mode='a', index=False, header=True)
 
 def close_position(percent):  # closes all positions
     # close all postions
@@ -582,6 +586,7 @@ with open(path, 'w') as file_object:
 
 log("clearing log")
 
+
 # list = []
 # with open(path, 'w') as file_object:  # open the file in write mode
 #     json.dump(list, file_object)
@@ -616,6 +621,22 @@ df = pd.DataFrame(index=[c.symbol for c in contracts],
                            'set_time_vwap_per', 'atr_count', 'set_time_atr', 'ticker_open', 'open', 'high', 'low', 'signal', 'in_trade', 'adx_signal',
                            'adx_dict', 'calculable', 'tradeable', 'wick_signal', 'wick_high', 'wick_low', 'wick_open', 'trade_bar',
                            'last_stp_price', 'last_lmt_price', 'closing_orders_set', 'traded'])
+global df_calls
+df_calls = pd.DataFrame(columns=['strike', 'delta', 'conId', 'right', 'bidDelta', 'askDelta', 'bidaskDelta'])
+
+global df_puts
+df_puts = pd.DataFrame(columns=['strike', 'delta', 'conId', 'right', 'bidDelta', 'askDelta', 'bidaskDelta'])
+
+global df_deltas
+df_deltas = pd.DataFrame(columns=['base_strike', 'delta_difference', 'delta_difference_3', 'call_deltas_3', 'put_deltas_3', 'base_call_delta', 'base_put_delta', 'time'])
+
+log("clearing csv log")
+df_deltas.to_csv('json/log.csv', mode='w', index=False, header=True)
+
+global df_flags
+df_flags = pd.DataFrame(columns=['last_log'])
+df_flags.loc[0] = [0]
+
 dict_spreads_percent = {}
 dict_spreads = {}
 for c in contracts:
@@ -887,16 +908,31 @@ def onBarUpdateNew(bars: BarDataList, has_new_bar: bool):
 
 
 def onPendingTickers(tickers):
+    global df_calls
+    global df_puts
+    global df_deltas
     global df
     global dict_spreads_percent
     global dict_spreads
     xx = datetime.datetime.now()
     # for t in tickers:
     #     print(str(t.contract.symbol) + " " + str(t.vwap))
+    underlying_price = 0 # grab last ticker underlying price for comparison later
     for t in tickers:
         symbol = t.contract.symbol
-        #157
-        print(t)
+        if t.contract.right == "C":
+            df_calls.loc[t.contract.strike] = [t.contract.strike, t.modelGreeks.delta, t.contract.conId, t.contract.right, t.bidGreeks.delta, t.askGreeks.delta, "not assigned"] # use strike as index , (t.bidGreeks.delta + t.askGreeks.delta)/2
+            df_calls.sort_index(ascending=True, inplace=True) # sort based on strike price and change original dataframe
+
+        if t.contract.right == "P":
+            df_puts.loc[t.contract.strike] = [t.contract.strike, t.modelGreeks.delta, t.contract.conId, t.contract.right, t.bidGreeks.delta, t.askGreeks.delta, "not assigned"]
+            df_puts.sort_index(ascending=True, inplace=True)
+
+        underlying_price = t.modelGreeks.undPrice
+        continue
+        # print(t)
+        # ib.disconnect()
+        # quit(0)
         try: # record spread percent
             spread_percent = (t.ask - t.bid) / df.loc[symbol].atr  # convert to precent of atr
             if not math.isnan(spread_percent):
@@ -963,6 +999,46 @@ def onPendingTickers(tickers):
                         (df.loc[symbol].vwap_1 - df.loc[symbol].vwap_2) / df.loc[symbol].atr, 2)
 
         df.loc[symbol].vwap = t.vwap
+
+    # look for the strike at which the deltas are closest and near the money
+    # print(df_calls)
+    # print(df_calls.loc[int(underlying_price)+0].delta)
+    # ib.disconnect()
+    # quit(0)
+    try:
+        count = 0
+        base_strike = None
+        delta_difference = 2 # will always be less than two
+        while count < 2:
+            call_delta = df_calls.loc[int(underlying_price)+count].delta
+            put_delta = df_puts.loc[int(underlying_price)+count].delta
+            if call_delta + put_delta < delta_difference:
+                base_strike = int(underlying_price)+count
+                delta_difference = call_delta + put_delta
+            count += 1
+    except:
+        print("tried, but need more data. wait a bit... calculating base strike")
+        pass
+    try:
+        # print("1")
+        base_call_delta = df_calls.loc[base_strike].delta
+        # print("2",base_call_delta)
+        base_put_delta = df_puts.loc[base_strike].delta
+        # print("3",base_put_delta)
+        delta_difference = df_calls.loc[base_strike].delta + df_puts.loc[base_strike].delta
+        # print("4",delta_difference)
+        call_deltas_3 = df_calls.loc[base_strike].delta + df_calls.loc[base_strike -1].delta + df_calls.loc[base_strike -2].delta
+        # print("5",call_deltas_3)
+        put_deltas_3 = df_puts.loc[base_strike].delta + df_puts.loc[base_strike +1].delta + df_puts.loc[base_strike +2].delta
+        # print("6",put_deltas_3)
+        delta_difference_3 = call_deltas_3 + put_deltas_3
+        # print("7",delta_difference_3)
+        delta_time = str(xx.hour) + ":" + str(xx.minute) + ":" + str(xx.second)
+        df_deltas.loc[0] = [base_strike, delta_difference, delta_difference_3, call_deltas_3, put_deltas_3, base_call_delta, base_put_delta, delta_time]
+        # print("8")
+    except:
+        print("tried, but need more data. wait a bit... 2")
+        pass
     # print("ticker : " + str(datetime.datetime.now() - xx))
     # # update atr_count
     # if xx.minute % time_frame == 0 and xx.minute != df.loc[symbol].set_time_atr:
@@ -1112,10 +1188,11 @@ while True:
 contract = contracts[0] # contract will be SPY or whatever is listed in symbols
 chains = ib.reqSecDefOptParams(contract.symbol, '', contract.secType, contract.conId)
 #util.df(chains)
+above_below = 4 # 2 will grab eight put/call contracts at four strikes
 chain = next(c for c in chains if c.tradingClass == contract.symbol and c.exchange == 'SMART')
 strikes = [strike for strike in chain.strikes
         if strike % 1 == 0
-        and last_price - 1 < strike < last_price + 1]
+        and last_price - above_below < strike < last_price + above_below]
 expirations = sorted(exp for exp in chain.expirations)[:3]
 rights = ['P', 'C']
 contracts = [Option(contract.symbol, expirations[0], strike, right, 'SMART', tradingClass=contract.symbol) # just grab the 0DTE   - expiration
@@ -1129,7 +1206,7 @@ print("found",len(contracts),"contracts")
 for contract in contracts:
     ib.sleep(.2)  # to prevent rate limiting
     ib.reqMktData(contract, '', False, False)
-    print(contract.symbol + " connected")
+    print(contract.symbol, contract.right,  contract.strike, " connected")
     ticker = ib.reqTickers(contract)
     # break
     #ib.cancelMktData(contract)
@@ -1267,9 +1344,18 @@ def trade_loop(bars: BarDataList, has_new_bar: bool):  # called from event liste
             df = df.sort_values(by=['spread %'])
             i = 0
             # print(df.head(10))
-            print(df[['signal', 'atr_count', 'stairs', 'wick_signal', 'adx_signal', 'spread %', 'spread', 'vwap',
-                      'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'in_trade', 'tradeable',
-                      'calculable']].head(20))
+            # print(df_calls.head(20))
+            # print(df_puts.head(20))
+            print(df_deltas.head(20))
+            # set up delta log using df_flags
+            if df_flags.loc[0].last_log != x.minute:
+                log("delta_difference: " + str(df_deltas.loc[0].delta_difference) + " delta_difference_3: " + str(df_deltas.loc[0].delta_difference_3) + " time: " + str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))
+                log_csv(df_deltas)
+                # csv([df_deltas.loc[0].delta_difference, df_deltas.loc[0].delta_difference_3, str(str(x.hour) + ":" + str(x.minute) + ":" + str(x.second))])
+                df_flags.loc[0].last_log = x.minute
+            #print(df[['signal', 'atr_count', 'stairs', 'wick_signal', 'adx_signal', 'spread %', 'spread', 'vwap',
+            #          'sum_percent', 'direction', 'pnl', 'mid_price', 'atr', 'in_trade', 'tradeable',
+            #          'calculable']].head(20))
 
             positions = ib.positions()  # get positions
             df_positions = util.df(positions)  # create dataframe with positions
